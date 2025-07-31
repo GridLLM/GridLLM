@@ -21,8 +21,8 @@ const envSchema = Joi.object({
 		`server-${Math.random().toString(36).substr(2, 9)}`
 	),
 	WORKER_TIMEOUT: Joi.number().default(300000), // 5 minutes
-	WORKER_HEARTBEAT_TIMEOUT: Joi.number().default(60000), // 1 minute
-	WORKER_CLEANUP_INTERVAL: Joi.number().default(30000), // 30 seconds
+	WORKER_HEARTBEAT_TIMEOUT: Joi.number().default(15000), // 15 seconds - much faster
+	WORKER_CLEANUP_INTERVAL: Joi.number().default(5000), // 5 seconds - much faster
 
 	// Job Configuration
 	JOB_TIMEOUT: Joi.number().default(600000), // 10 minutes

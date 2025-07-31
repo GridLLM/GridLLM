@@ -77,7 +77,14 @@ export interface InferenceRequest {
 	};
 	priority?: "high" | "medium" | "low";
 	timeout?: number;
-	metadata?: Record<string, any>;
+	metadata?: {
+		retryCount?: number;
+		orphaned?: boolean;
+		originalWorkerId?: string;
+		orphanedAt?: string;
+		requeueCount?: number;
+		[key: string]: any;
+	};
 }
 
 export interface InferenceResponse {

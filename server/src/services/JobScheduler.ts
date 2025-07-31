@@ -42,6 +42,12 @@ export class JobScheduler extends EventEmitter {
 				this.handleJobTimeout.bind(this)
 			);
 
+			// Subscribe to worker events to handle orphaned jobs
+			this.workerRegistry.on(
+				"worker_removed",
+				this.handleWorkerDisconnection.bind(this)
+			);
+
 			// Load any existing jobs from Redis
 			await this.loadExistingJobs();
 
@@ -131,6 +137,7 @@ export class JobScheduler extends EventEmitter {
 	private startProcessingInterval(): void {
 		this.processingInterval = setInterval(async () => {
 			await this.processJobQueue();
+			await this.checkForOrphanedJobs(); // Add orphaned job checking
 		}, 1000); // Process every second
 
 		logger.info("Job processing interval started");
@@ -140,6 +147,10 @@ export class JobScheduler extends EventEmitter {
 		if (this.jobQueue.length === 0) {
 			return;
 		}
+
+		logger.info(
+			`Processing job queue: ${this.jobQueue.length} jobs waiting`
+		);
 
 		// Sort jobs by priority
 		this.jobQueue.sort((a, b) => {
@@ -156,11 +167,38 @@ export class JobScheduler extends EventEmitter {
 			const job = this.jobQueue[i];
 			if (!job) continue;
 
+			logger.info(
+				`Attempting to assign job ${job.id} (priority: ${job.priority}, orphaned: ${job.metadata?.orphaned})`
+			);
+
 			const worker = this.selectWorkerForJob(job);
 
 			if (worker) {
-				await this.assignJobToWorker(job, worker);
-				processedJobs.push(job.id);
+				logger.info(
+					`Assigning job ${job.id} to worker ${worker.workerId}`
+				);
+				const wasAssigned = await this.assignJobToWorker(job, worker);
+				if (wasAssigned) {
+					processedJobs.push(job.id);
+				} else {
+					logger.warn(
+						`Job ${job.id} assignment to worker ${worker.workerId} failed - keeping in queue`
+					);
+				}
+			} else {
+				logger.warn(
+					`No suitable worker found for job ${job.id} (model: ${job.model})`
+				);
+
+				// Log available workers for debugging
+				const availableWorkers =
+					this.workerRegistry.getAvailableWorkers();
+				const modelWorkers = this.workerRegistry.getWorkersByModel(
+					job.model
+				);
+				logger.warn(
+					`Available workers: ${availableWorkers.length}, Workers with model ${job.model}: ${modelWorkers.length}`
+				);
 			}
 		}
 
@@ -172,6 +210,120 @@ export class JobScheduler extends EventEmitter {
 		// Update queue in Redis
 		if (processedJobs.length > 0) {
 			await this.redis.set("job_queue", JSON.stringify(this.jobQueue));
+			logger.info(`Processed ${processedJobs.length} jobs from queue`);
+		}
+	}
+
+	private async checkForOrphanedJobs(): Promise<void> {
+		if (this.activeJobs.size === 0) {
+			return;
+		}
+
+		const now = Date.now();
+		const orphanCheckThreshold = 10000; // 10 seconds - much faster than heartbeat timeout
+
+		for (const [jobId, jobAssignment] of this.activeJobs.entries()) {
+			const assignedTime = new Date(jobAssignment.assignedAt).getTime();
+			const timeSinceAssigned = now - assignedTime;
+
+			// If job has been assigned for more than 10 seconds, check if worker is still alive
+			if (timeSinceAssigned > orphanCheckThreshold) {
+				const worker = this.workerRegistry.getWorker(
+					jobAssignment.workerId
+				);
+
+				if (!worker) {
+					// Worker no longer exists, orphan the job immediately
+					logger.error(
+						`Job ${jobId} orphaned - worker ${jobAssignment.workerId} no longer exists`
+					);
+					await this.orphanJob(
+						jobId,
+						jobAssignment,
+						"worker_not_found"
+					);
+					continue;
+				}
+
+				// Check if worker is still responding
+				const lastHeartbeat = new Date(worker.lastHeartbeat).getTime();
+				const timeSinceHeartbeat = now - lastHeartbeat;
+
+				if (timeSinceHeartbeat > 15000) {
+					// 15 seconds since last heartbeat
+					logger.error(
+						`Job ${jobId} orphaned - worker ${jobAssignment.workerId} not responding (${timeSinceHeartbeat}ms since last heartbeat)`
+					);
+					await this.orphanJob(
+						jobId,
+						jobAssignment,
+						"worker_not_responding"
+					);
+				}
+			}
+		}
+	}
+
+	private async orphanJob(
+		jobId: string,
+		jobAssignment: JobAssignment,
+		reason: string
+	): Promise<void> {
+		try {
+			// Remove from active jobs
+			this.activeJobs.delete(jobId);
+			await this.redis.hdel("active_jobs", jobId);
+
+			// Mark worker as available (if it still exists)
+			const worker = this.workerRegistry.getWorker(
+				jobAssignment.workerId
+			);
+			if (worker) {
+				await this.workerRegistry.markWorkerAvailable(
+					jobAssignment.workerId
+				);
+			}
+
+			// Create orphaned request with high priority
+			const orphanedRequest: InferenceRequest = {
+				...jobAssignment.request,
+				priority: "high",
+				metadata: {
+					...jobAssignment.request.metadata,
+					orphaned: true,
+					originalWorkerId: jobAssignment.workerId,
+					orphanedAt: new Date().toISOString(),
+					orphanReason: reason,
+					requeueCount:
+						(jobAssignment.request.metadata?.requeueCount || 0) + 1,
+				},
+			};
+
+			// Add to front of queue for immediate processing
+			this.jobQueue.unshift(orphanedRequest);
+			await this.redis.set("job_queue", JSON.stringify(this.jobQueue));
+
+			logger.error(
+				`ORPHANED JOB REQUEUED: Job ${jobId} added to front of queue (queue size: ${this.jobQueue.length})`
+			);
+
+			this.emit("job_orphaned", {
+				jobAssignment,
+				originalWorkerId: jobAssignment.workerId,
+				requeuedRequest: orphanedRequest,
+				reason,
+			});
+
+			logger.warn(
+				`Job ${jobId} orphaned and requeued with high priority due to: ${reason}`,
+				{
+					originalWorkerId: jobAssignment.workerId,
+					requeueCount: orphanedRequest.metadata?.requeueCount,
+					queueSize: this.jobQueue.length,
+				}
+			);
+		} catch (error) {
+			logger.error(`Failed to orphan job ${jobId}`, error);
 		}
 	}
 
@@ -181,7 +333,17 @@ export class JobScheduler extends EventEmitter {
 			job.model
 		);
 
+		logger.debug(
+			`Selecting worker for job ${job.id}: found ${candidateWorkers.length} candidates for model ${job.model}`
+		);
+
 		if (candidateWorkers.length === 0) {
+			// Debug: check if there are any workers with this model at all
+			const allWorkers = this.workerRegistry.getWorkersByModel(job.model);
+			const onlineWorkers = this.workerRegistry.getOnlineWorkers();
+			logger.debug(
+				`No available workers for model ${job.model}. Total workers with model: ${allWorkers.length}, Online workers: ${onlineWorkers.length}`
+			);
 			return null;
 		}
 
@@ -200,14 +362,46 @@ export class JobScheduler extends EventEmitter {
 			);
 		});
 
-		return candidateWorkers[0] || null;
+		const selectedWorker = candidateWorkers[0];
+		if (selectedWorker) {
+			logger.debug(
+				`Selected worker ${selectedWorker.workerId} for job ${job.id} (${selectedWorker.currentJobs} current jobs)`
+			);
+		}
+
+		return selectedWorker || null;
 	}
 
 	private async assignJobToWorker(
 		job: InferenceRequest,
 		worker: WorkerInfo
-	): Promise<void> {
+	): Promise<boolean> {
 		try {
+			// Double-check that worker is still available before assignment
+			const currentWorker = this.workerRegistry.getWorker(
+				worker.workerId
+			);
+			if (!currentWorker) {
+				logger.warn(
+					`Worker ${worker.workerId} no longer available, cannot assign job ${job.id}`
+				);
+				return false; // Job will remain in queue for next iteration
+			}
+
+			// Check if worker has responded recently
+			const lastHeartbeat = new Date(
+				currentWorker.lastHeartbeat
+			).getTime();
+			const timeSinceHeartbeat = Date.now() - lastHeartbeat;
+
+			if (timeSinceHeartbeat > 10000) {
+				// 10 seconds
+				logger.warn(
+					`Worker ${worker.workerId} hasn't responded recently (${timeSinceHeartbeat}ms), skipping assignment`
+				);
+				return false; // Job will remain in queue for next iteration
+			}
+
 			const jobAssignment: JobAssignment = {
 				jobId: job.id,
 				workerId: worker.workerId,
@@ -246,9 +440,11 @@ export class JobScheduler extends EventEmitter {
 				workerId: worker.workerId,
 				model: job.model,
 			});
+
+			return true; // Assignment successful
 		} catch (error) {
 			logger.error("Failed to assign job to worker", error);
-			throw error;
+			return false; // Assignment failed
 		}
 	}
 
@@ -379,6 +575,91 @@ export class JobScheduler extends EventEmitter {
 		}
 	}
 
+	private async handleWorkerDisconnection(worker: any): Promise<void> {
+		try {
+			logger.error(
+				"WORKER DISCONNECTION DETECTED - Handling worker disconnection",
+				{
+					workerId: worker.workerId,
+				}
+			);
+
+			// Find all active jobs assigned to this worker
+			const orphanedJobs: JobAssignment[] = [];
+
+			for (const [jobId, jobAssignment] of this.activeJobs.entries()) {
+				if (jobAssignment.workerId === worker.workerId) {
+					orphanedJobs.push(jobAssignment);
+
+					// Remove from active jobs
+					this.activeJobs.delete(jobId);
+					await this.redis.hdel("active_jobs", jobId);
+				}
+			}
+
+			if (orphanedJobs.length > 0) {
+				logger.error(
+					`REDISTRIBUTING JOBS: Found ${orphanedJobs.length} orphaned jobs from disconnected worker`,
+					{
+						workerId: worker.workerId,
+						orphanedJobIds: orphanedJobs.map((job) => job.jobId),
+					}
+				);
+
+				// Requeue orphaned jobs with high priority at the front of the queue
+				for (const jobAssignment of orphanedJobs) {
+					const originalRequest = jobAssignment.request;
+
+					// Mark as orphaned and set high priority
+					const requeuedRequest: InferenceRequest = {
+						...originalRequest,
+						priority: "high", // Promote to high priority
+						metadata: {
+							...originalRequest.metadata,
+							orphaned: true,
+							originalWorkerId: worker.workerId,
+							orphanedAt: new Date().toISOString(),
+							requeueCount:
+								(originalRequest.metadata?.requeueCount || 0) +
+								1,
+						},
+					};
+
+					// Add to the front of the queue for immediate processing
+					this.jobQueue.unshift(requeuedRequest);
+
+					logger.warn(
+						`Orphaned job requeued with high priority: ${jobAssignment.jobId}`,
+						{
+							originalWorkerId: worker.workerId,
+							requeueCount:
+								requeuedRequest.metadata?.requeueCount,
+							newPriority: requeuedRequest.priority,
+						}
+					);
+
+					this.emit("job_orphaned", {
+						jobAssignment,
+						originalWorkerId: worker.workerId,
+						requeuedRequest,
+					});
+				}
+
+				// Update queue in Redis
+				await this.redis.set(
+					"job_queue",
+					JSON.stringify(this.jobQueue)
+				);
+
+				logger.warn(
+					`Successfully requeued ${orphanedJobs.length} orphaned jobs from worker ${worker.workerId}`
+				);
+			}
+		} catch (error) {
+			logger.error("Failed to handle worker disconnection", error);
+		}
+	}
+
 	private async waitForActiveJobs(): Promise<void> {
 		const maxWaitTime = 30000; // 30 seconds
 		const startTime = Date.now();
@@ -412,6 +693,7 @@ export class JobScheduler extends EventEmitter {
 		logger.job(request.id, "Job added to queue", {
 			model: request.model,
 			priority: request.priority,
+			queueSize: this.jobQueue.length,
 		});
 	}
 

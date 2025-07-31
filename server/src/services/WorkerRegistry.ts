@@ -36,7 +36,11 @@ export class WorkerRegistry extends EventEmitter {
 				this.handleWorkerStatusUpdate.bind(this)
 			);
 
-			// Load existing workers from Redis
+			// Subscribe to Redis disconnection events
+			await this.redis.subscribe(
+				"worker:disconnected",
+				this.handleWorkerDisconnected.bind(this)
+			); // Load existing workers from Redis
 			await this.loadExistingWorkers();
 
 			// Start cleanup interval
@@ -62,6 +66,7 @@ export class WorkerRegistry extends EventEmitter {
 		await this.redis.unsubscribe("worker:unregistered");
 		await this.redis.unsubscribe("worker:heartbeat");
 		await this.redis.unsubscribe("worker:status_update");
+		await this.redis.unsubscribe("worker:disconnected");
 
 		this.workers.clear();
 		logger.info("Worker registry stopped");
@@ -115,6 +120,69 @@ export class WorkerRegistry extends EventEmitter {
 		logger.info("Worker cleanup interval started", {
 			interval: config.server.workerCleanupInterval,
 		});
+
+		// Also start immediate connection monitoring
+		this.startConnectionMonitoring();
+	}
+
+	private startConnectionMonitoring(): void {
+		// Monitor Redis client connections more frequently for immediate disconnection detection
+		setInterval(async () => {
+			await this.checkWorkerConnections();
+		}, 5000); // Check every 5 seconds for immediate detection
+
+		logger.info("Worker connection monitoring started");
+	}
+
+	private async checkWorkerConnections(): Promise<void> {
+		const now = Date.now();
+		const quickDisconnectThreshold = 15000; // 15 seconds for immediate disconnection detection
+
+		for (const [workerId, worker] of this.workers.entries()) {
+			const lastSeen = new Date(worker.lastHeartbeat).getTime();
+			const timeSinceLastSeen = now - lastSeen;
+
+			// If worker hasn't been seen for 15 seconds, check if it's really gone
+			if (
+				timeSinceLastSeen > quickDisconnectThreshold &&
+				timeSinceLastSeen < config.server.workerHeartbeatTimeout
+			) {
+				logger.debug(
+					`Checking worker ${workerId} aliveness - ${timeSinceLastSeen}ms since last heartbeat`
+				);
+				const isStillConnected = await this.checkWorkerAliveness(
+					workerId
+				);
+				if (!isStillConnected) {
+					logger.warn(
+						`Worker ${workerId} appears to have disconnected abruptly (${worker.currentJobs} active jobs) - removing immediately`
+					);
+					await this.removeWorker(workerId);
+				}
+			}
+		}
+	}
+
+	private async checkWorkerAliveness(workerId: string): Promise<boolean> {
+		try {
+			// Try to get the worker's heartbeat record from Redis
+			const heartbeatKey = `heartbeat:${workerId}`;
+			const heartbeatData = await this.redis.get(heartbeatKey);
+
+			if (!heartbeatData) {
+				return false; // No heartbeat data means worker is likely disconnected
+			}
+
+			const heartbeat = JSON.parse(heartbeatData);
+			const heartbeatAge =
+				Date.now() - new Date(heartbeat.timestamp).getTime();
+
+			// If heartbeat is older than 15 seconds, worker is likely disconnected
+			return heartbeatAge < 15000;
+		} catch (error) {
+			logger.error(`Failed to check worker ${workerId} aliveness`, error);
+			return false; // Assume disconnected on error
+		}
 	}
 
 	private async cleanupStaleWorkers(): Promise<void> {
@@ -131,12 +199,28 @@ export class WorkerRegistry extends EventEmitter {
 		}
 
 		if (staleWorkers.length > 0) {
-			logger.info(`Cleaning up ${staleWorkers.length} stale workers`);
+			logger.warn(
+				`Cleaning up ${staleWorkers.length} stale workers and redistributing their tasks`
+			);
 
 			for (const workerId of staleWorkers) {
+				// Get worker info before removing it to check for active jobs
+				const worker = this.workers.get(workerId);
+
+				if (worker && worker.currentJobs > 0) {
+					logger.error(
+						`Stale worker ${workerId} had ${worker.currentJobs} active jobs - redistributing to queue`
+					);
+				}
+
 				await this.removeWorker(workerId);
-				logger.worker(workerId, "Removed stale worker");
+				logger.warn(`Removed stale worker: ${workerId}`);
 			}
+		} else {
+			// Add periodic debug logging to show the cleanup is running
+			logger.debug(
+				`Worker cleanup cycle complete - ${this.workers.size} workers online`
+			);
 		}
 	}
 
@@ -280,6 +364,25 @@ export class WorkerRegistry extends EventEmitter {
 			}
 		} catch (error) {
 			logger.error("Failed to handle worker status update", error);
+		}
+	}
+
+	private async handleWorkerDisconnected(message: string): Promise<void> {
+		try {
+			const data = JSON.parse(message);
+			const worker = this.workers.get(data.workerId);
+
+			if (worker) {
+				logger.warn(
+					`Worker ${data.workerId} disconnected abruptly (${worker.currentJobs} active jobs) - redistributing tasks`
+				);
+			} else {
+				logger.warn(`Worker ${data.workerId} disconnected abruptly`);
+			}
+
+			await this.removeWorker(data.workerId);
+		} catch (error) {
+			logger.error("Failed to handle worker disconnection", error);
 		}
 	}
 

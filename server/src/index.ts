@@ -172,6 +172,19 @@ class GridLLMServer {
 			});
 		});
 
+		this.jobScheduler.on("job_orphaned", (data) => {
+			logger.job(
+				data.jobAssignment.jobId,
+				"Job orphaned due to worker disconnect",
+				{
+					originalWorkerId: data.originalWorkerId,
+					requeueCount: data.requeuedRequest.metadata?.requeueCount,
+					newPriority: data.requeuedRequest.priority,
+					model: data.jobAssignment.request.model,
+				}
+			);
+		});
+
 		// Process events
 		process.on("SIGTERM", () => {
 			logger.info("SIGTERM received, shutting down gracefully");

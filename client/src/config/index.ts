@@ -101,7 +101,7 @@ export const config = {
 	server: {
 		host: envVars.SERVER_HOST,
 		port: envVars.SERVER_PORT,
-		heartbeatInterval: 30000, // Fixed interval for workers
+		heartbeatInterval: 5000, // 5 seconds - much faster heartbeat
 		reconnectDelay: 5000,
 		maxReconnectAttempts: 10,
 	},

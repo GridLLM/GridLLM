@@ -113,6 +113,8 @@ export class RedisConnectionManager {
 		this.redis.on("close", () => {
 			logger.warn("Redis main connection closed");
 			this.isConnected = false;
+			// Notify server about worker disconnection if we have worker ID
+			this.notifyWorkerDisconnection();
 		});
 
 		this.redis.on("reconnecting", (delay: number) => {
@@ -133,6 +135,11 @@ export class RedisConnectionManager {
 			logger.error("Redis subscriber error", error);
 		});
 
+		this.subscriber.on("close", () => {
+			logger.warn("Redis subscriber connection closed");
+			this.notifyWorkerDisconnection();
+		});
+
 		this.subscriber.on("message", (channel, message) => {
 			logger.debug("Redis message received", { channel, message });
 		});
@@ -141,6 +148,39 @@ export class RedisConnectionManager {
 		this.publisher.on("error", (error) => {
 			logger.error("Redis publisher error", error);
 		});
+
+		this.publisher.on("close", () => {
+			logger.warn("Redis publisher connection closed");
+			this.notifyWorkerDisconnection();
+		});
+	}
+
+	private async notifyWorkerDisconnection(): Promise<void> {
+		try {
+			// Try to notify server about disconnection if possible
+			// Use a different Redis connection or the publisher if it's still available
+			if (this.publisher && this.publisher.status === "ready") {
+				const workerId = config.worker.id;
+				if (workerId) {
+					await this.publisher.publish(
+						"worker:disconnected",
+						JSON.stringify({
+							workerId,
+							timestamp: new Date().toISOString(),
+							reason: "connection_lost",
+						})
+					);
+					logger.warn(
+						`Notified server about worker ${workerId} disconnection`
+					);
+				}
+			}
+		} catch (error) {
+			logger.error(
+				"Failed to notify server about worker disconnection",
+				error
+			);
+		}
 	}
 
 	async disconnect(): Promise<void> {
