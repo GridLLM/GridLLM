@@ -16,7 +16,7 @@
 		"docker:build:server": "cd server && docker build -t gridllm-server .",
 		"docker:build:client": "cd client && docker build -t ${CLIENT_IMAGE_NAME:-gridllm-client} .",
 		"docker:build": "npm run docker:build:server && npm run docker:build:client",
-		"client": "npm run docker:build:client && docker stop ${CLIENT_CONTAINER_NAME:-gridllm-client-container} 2>/dev/null || true && docker rm ${CLIENT_CONTAINER_NAME:-gridllm-client-container} 2>/dev/null || true && docker run -d -p ${CLIENT_PORT:-3001}:3000 --name ${CLIENT_CONTAINER_NAME:-gridllm-client-container} --env-file .env -e PORT=3000 -e SERVER_HOST=${SERVER_HOST:-host.docker.internal} -e SERVER_REDIS_HOST=${REDIS_HOST:-host.docker.internal} -e SERVER_REDIS_PORT=${REDIS_PORT:-6389} ${CLIENT_IMAGE_NAME:-gridllm-client}",
+		"client": "npm run docker:build:client && docker stop ${CLIENT_CONTAINER_NAME:-gridllm-client-container} 2>/dev/null || true && docker rm ${CLIENT_CONTAINER_NAME:-gridllm-client-container} 2>/dev/null || true && docker run -d -p ${CLIENT_PORT:-3001}:3000 --name ${CLIENT_CONTAINER_NAME:-gridllm-client-container} $(cat .env | grep -v '^#' | grep -v '^$' | sed 's/^/-e /' | tr '\n' ' ') ${CLIENT_IMAGE_NAME:-gridllm-client}",
 		"docker:run": "npm run docker:build && npm run docker:run:server && npm run docker:run:client",
 		"docker:stop": "docker stop gridllm-server-container gridllm-client-container 2>/dev/null || true",
 		"docker:clean": "npm run docker:stop && docker rm gridllm-server-container gridllm-client-container 2>/dev/null || true && docker rmi gridllm-server gridllm-client 2>/dev/null || true",
