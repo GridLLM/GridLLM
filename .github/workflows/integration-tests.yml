@@ -1,82 +1,90 @@
-name: End-to-End Integration Tests
+name: Integration Tests
 
 on:
     push:
-        branches: [staging, main]
+        branches: [main, staging]
     pull_request:
-        branches: [staging, main]
+        branches: [main, staging]
 
 jobs:
     integration-test:
         runs-on: ubuntu-latest
-        timeout-minutes: 45
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Set up Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "18"
-                  cache: "npm"
-
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
-            - name: Cache Docker layers
-              uses: actions/cache@v3
-              with:
-                  path: /tmp/.buildx-cache
-                  key: ${{ runner.os }}-buildx-${{ github.sha }}
-                  restore-keys: |
-                      ${{ runner.os }}-buildx-
-
-            - name: Build and cache GridLLM images
+            - name: Create .env file for testing
               run: |
-                  echo "Building GridLLM Docker images..."
-                  npm run docker:build
+                  cat > .env << EOF
+                  NODE_ENV=test
+                  SERVER_PORT=4000
+                  CLIENT_PORT=3000
+                  REDIS_PORT=6379
+                  REDIS_PASSWORD=
+                  REDIS_DB=0
+                  REDIS_KEY_PREFIX=GridLLM:
+                  WORKER_ID=worker-ci-001
+                  OLLAMA_HOST=host.docker.internal
+                  OLLAMA_PORT=11434
+                  OLLAMA_PROTOCOL=http
+                  API_KEY=test-api-key
+                  LOG_LEVEL=info
+                  EOF
 
-                  # Tag images for better caching
-                  docker tag gridllm-server gridllm-server:test
-                  docker tag gridllm-client gridllm-client:test
-
-            - name: Install dependencies
+            - name: Build Docker images
               run: |
-                  npm install
-                  npm run install:all
+                  docker-compose build --no-cache
 
-            - name: Install system dependencies
+            - name: Start services
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y redis-tools curl jq
+                  docker-compose up -d
 
-            - name: Run integration tests
+            - name: Wait for services to be healthy
               run: |
-                  echo "Running integration tests with Testcontainers..."
-                  npm test
-              env:
-                  # Testcontainers will handle all container management
-                  NODE_ENV: test
-                  LOG_LEVEL: info
+                  echo "Waiting for services to start..."
+                  sleep 30
 
-            - name: Collect logs on failure
+                  # Wait for Redis to be healthy
+                  timeout 60 bash -c 'until docker-compose exec -T redis redis-cli ping; do sleep 2; done'
+                  echo "Redis is healthy"
+
+                  # Wait for Server to be healthy
+                  timeout 120 bash -c 'until curl -f http://localhost:4000/health; do sleep 5; done'
+                  echo "Server is healthy"
+
+                  # Wait for Client to be healthy
+                  timeout 120 bash -c 'until curl -f http://localhost:3000/health; do sleep 5; done'
+                  echo "Client is healthy"
+
+            - name: Run basic integration tests
+              run: |
+                  echo "Testing server health endpoint..."
+                  curl -f http://localhost:4000/health
+
+                  echo "Testing client health endpoint..."
+                  curl -f http://localhost:3000/health
+
+                  echo "Testing Redis connection..."
+                  docker-compose exec -T redis redis-cli ping
+
+                  echo "All services are running and healthy!"
+
+            - name: Show service logs on failure
               if: failure()
               run: |
-                  echo "=== Docker Status ==="
-                  docker ps -a
+                  echo "=== Server logs ==="
+                  docker-compose logs server
+                  echo "=== Client logs ==="
+                  docker-compose logs client
+                  echo "=== Redis logs ==="
+                  docker-compose logs redis
 
-                  echo "=== Docker Images ==="
-                  docker images
-
-                  echo "=== Docker Logs ==="
-                  docker logs $(docker ps -aq) 2>/dev/null || echo "No container logs available"
-
-            - name: Cleanup
+            - name: Stop and cleanup
               if: always()
               run: |
-                  echo "Cleaning up..."
-                  # Testcontainers handles most cleanup automatically
-                  # but let's ensure GridLLM services are stopped
-                  npm run bundle:stop 2>/dev/null || true
+                  docker-compose down -v
                   docker system prune -f

@@ -31,6 +31,7 @@
 		"compose:clean": "docker compose down -v --remove-orphans && docker compose rm -f",
 		"bundle": "echo 'Starting GridLLM bundle (Server + Redis)...' && docker compose up -d redis server",
 		"bundle:full": "echo 'Starting GridLLM full bundle (Server + Redis + Client)...' && docker compose up -d",
+		"make:bundle-with-client": "echo 'Starting GridLLM full bundle (Server + Redis + Client)...' && docker compose up -d",
 		"bundle:stop": "docker compose down",
 		"bundle:logs": "docker compose logs -f",
 		"logs:server:docker": "docker logs -f gridllm-server-container 2>/dev/null || echo 'Server container not running'",
@@ -44,6 +45,7 @@
 		"test": "jest",
 		"test:integration": "jest tests/integration.test.ts",
 		"test:unit": "jest tests/client && jest tests/server",
+		"test:e2e": "scripts/run-e2e-tests.sh",
 		"test:watch": "jest --watch",
 		"test:coverage": "jest --coverage"
 	},
