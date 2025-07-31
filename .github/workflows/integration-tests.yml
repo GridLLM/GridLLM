@@ -17,11 +17,62 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
-            - name: Start Ollama container
+            # Cache Docker layers for your application images
+            - name: Cache Docker layers
+              uses: actions/cache@v4
+              with:
+                  path: /tmp/.buildx-cache
+                  key: ${{ runner.os }}-buildx-${{ github.sha }}
+                  restore-keys: |
+                      ${{ runner.os }}-buildx-
+
+            # Cache all Docker images together
+            - name: Cache Docker images
+              id: cache-images
+              uses: actions/cache@v4
+              with:
+                  path: /tmp/docker-images.tar
+                  key: docker-images-redis7-ollama-v1
+                  restore-keys: |
+                      docker-images-
+
+            # Pull and save all images if not cached
+            - name: Pull and save Docker images
+              if: steps.cache-images.outputs.cache-hit != 'true'
               run: |
+                  echo "Pulling Docker images..."
+                  docker pull redis:7-alpine
+                  docker pull ollama/ollama:latest
+                  echo "Saving images to cache..."
+                  docker save redis:7-alpine ollama/ollama:latest -o /tmp/docker-images.tar
+
+            # Load images from cache
+            - name: Load Docker images
+              if: steps.cache-images.outputs.cache-hit == 'true'
+              run: |
+                  echo "Loading images from cache..."
+                  docker load -i /tmp/docker-images.tar
+
+            # Cache the Ollama model separately (this is the biggest time saver)
+            - name: Cache Ollama model
+              id: cache-model
+              uses: actions/cache@v4
+              with:
+                  path: /tmp/ollama-models
+                  key: ollama-model-qwen2.5-0.5b-v1
+                  restore-keys: |
+                      ollama-model-qwen2.5-0.5b-
+
+            - name: Start Ollama container with model cache
+              run: |
+                  # Create model directory if it doesn't exist
+                  mkdir -p /tmp/ollama-models
+
+                  # Start Ollama with volume mount for model persistence
                   docker run -d \
                     --name ollama-test \
                     -p 11434:11434 \
+                    -v /tmp/ollama-models:/root/.ollama \
                     ollama/ollama:latest
 
                   # Wait for Ollama to be ready
@@ -29,10 +80,22 @@ jobs:
                   timeout 120 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 5; done'
                   echo "Ollama is ready"
 
-                  # Pull qwen2.5:0.5b on Ollama POST /api/pull
+            # Only pull model if not cached
+            - name: Pull qwen2.5:0.5b model
+              if: steps.cache-model.outputs.cache-hit != 'true'
+              run: |
                   echo "Pulling qwen2.5:0.5b model..."
-                  timeout 120 bash -c 'until curl -X POST -H "Content-Type: application/json" -d "{\"model\": \"qwen2.5:0.5b\"}" http://localhost:11434/api/pull; do sleep 5; done'
+                  curl -X POST -H "Content-Type: application/json" -d '{"model": "qwen2.5:0.5b"}' http://localhost:11434/api/pull
+
+                  # Wait for pull to complete
+                  timeout 300 bash -c 'while [ "$(curl -s -X POST -H "Content-Type: application/json" -d "{\"model\": \"qwen2.5:0.5b\"}" http://localhost:11434/api/pull | jq -r .status 2>/dev/null || echo "pulling")" = "pulling" ]; do echo "Still pulling..."; sleep 10; done'
                   echo "Model qwen2.5:0.5b is ready"
+
+            # Verify model is available (for both cached and fresh installs)
+            - name: Verify model availability
+              run: |
+                  echo "Verifying model is available..."
+                  curl -X POST -H "Content-Type: application/json" -d '{"model": "qwen2.5:0.5b"}' http://localhost:11434/api/show
 
             - name: Create .env file for testing
               run: |
@@ -52,9 +115,17 @@ jobs:
                   LOG_LEVEL=info
                   EOF
 
-            - name: Build Docker images
+            - name: Build Docker images with cache
               run: |
-                  docker compose build --no-cache
+                  docker compose build --no-cache \
+                    --cache-from type=local,src=/tmp/.buildx-cache \
+                    --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+            # Move cache to avoid cache bloat
+            - name: Move cache
+              run: |
+                  rm -rf /tmp/.buildx-cache
+                  mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
             - name: Start services and connect Ollama
               run: |
@@ -126,4 +197,5 @@ jobs:
                   docker compose down -v
                   docker stop ollama-test 2>/dev/null || true
                   docker rm ollama-test 2>/dev/null || true
-                  docker system prune -f
+                  # Don't prune everything to preserve caches
+                  docker container prune -f
