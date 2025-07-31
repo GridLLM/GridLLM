@@ -1,0 +1,72 @@
+name: Auto Format Code
+
+on:
+    pull_request_review:
+        types: [submitted]
+
+jobs:
+    format:
+        if: github.event.review.state == 'approved' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'staging')
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout PR branch
+              uses: actions/checkout@v4
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  ref: ${{ github.event.pull_request.head.ref }}
+                  repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18"
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run prettier formatting
+              run: npm run format
+
+            - name: Check for changes
+              id: verify-changed-files
+              run: |
+                  if [ -n "$(git status --porcelain)" ]; then
+                    echo "changed=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "changed=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Commit formatted files
+              if: steps.verify-changed-files.outputs.changed == 'true'
+              run: |
+                  git config --local user.email "action@github.com"
+                  git config --local user.name "GitHub Action"
+                  git add .
+                  git commit -m "Auto-format code with prettier [skip ci]"
+                  git push
+
+            - name: Comment on PR
+              if: steps.verify-changed-files.outputs.changed == 'true'
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: '✨ Code has been automatically formatted with Prettier after approval.'
+                      })
+
+            - name: Comment on PR (no changes)
+              if: steps.verify-changed-files.outputs.changed == 'false'
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: '✅ Code formatting is already up to date.'
+                      })
