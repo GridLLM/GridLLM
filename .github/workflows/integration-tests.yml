@@ -37,11 +37,11 @@ jobs:
 
             - name: Build Docker images
               run: |
-                  docker-compose build --no-cache
+                  docker compose build --no-cache
 
             - name: Start services
               run: |
-                  docker-compose up -d
+                  docker compose up -d
 
             - name: Wait for services to be healthy
               run: |
@@ -49,7 +49,7 @@ jobs:
                   sleep 30
 
                   # Wait for Redis to be healthy
-                  timeout 60 bash -c 'until docker-compose exec -T redis redis-cli ping; do sleep 2; done'
+                  timeout 60 bash -c 'until docker compose exec -T redis redis-cli ping; do sleep 2; done'
                   echo "Redis is healthy"
 
                   # Wait for Server to be healthy
@@ -69,7 +69,7 @@ jobs:
                   curl -f http://localhost:3000/health
 
                   echo "Testing Redis connection..."
-                  docker-compose exec -T redis redis-cli ping
+                  docker compose exec -T redis redis-cli ping
 
                   echo "All services are running and healthy!"
 
@@ -77,14 +77,14 @@ jobs:
               if: failure()
               run: |
                   echo "=== Server logs ==="
-                  docker-compose logs server
+                  docker compose logs server
                   echo "=== Client logs ==="
-                  docker-compose logs client
+                  docker compose logs client
                   echo "=== Redis logs ==="
-                  docker-compose logs redis
+                  docker compose logs redis
 
             - name: Stop and cleanup
               if: always()
               run: |
-                  docker-compose down -v
+                  docker compose down -v
                   docker system prune -f
