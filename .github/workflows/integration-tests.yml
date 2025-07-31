@@ -1,0 +1,82 @@
+name: End-to-End Integration Tests
+
+on:
+    push:
+        branches: [staging, main]
+    pull_request:
+        branches: [staging, main]
+
+jobs:
+    integration-test:
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18"
+                  cache: "npm"
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Cache Docker layers
+              uses: actions/cache@v3
+              with:
+                  path: /tmp/.buildx-cache
+                  key: ${{ runner.os }}-buildx-${{ github.sha }}
+                  restore-keys: |
+                      ${{ runner.os }}-buildx-
+
+            - name: Build and cache GridLLM images
+              run: |
+                  echo "Building GridLLM Docker images..."
+                  npm run docker:build
+
+                  # Tag images for better caching
+                  docker tag gridllm-server gridllm-server:test
+                  docker tag gridllm-client gridllm-client:test
+
+            - name: Install dependencies
+              run: |
+                  npm install
+                  npm run install:all
+
+            - name: Install system dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y redis-tools curl jq
+
+            - name: Run integration tests
+              run: |
+                  echo "Running integration tests with Testcontainers..."
+                  npm test
+              env:
+                  # Testcontainers will handle all container management
+                  NODE_ENV: test
+                  LOG_LEVEL: info
+
+            - name: Collect logs on failure
+              if: failure()
+              run: |
+                  echo "=== Docker Status ==="
+                  docker ps -a
+
+                  echo "=== Docker Images ==="
+                  docker images
+
+                  echo "=== Docker Logs ==="
+                  docker logs $(docker ps -aq) 2>/dev/null || echo "No container logs available"
+
+            - name: Cleanup
+              if: always()
+              run: |
+                  echo "Cleaning up..."
+                  # Testcontainers handles most cleanup automatically
+                  # but let's ensure GridLLM services are stopped
+                  npm run bundle:stop 2>/dev/null || true
+                  docker system prune -f
