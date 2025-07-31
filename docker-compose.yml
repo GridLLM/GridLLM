@@ -36,7 +36,7 @@ services:
         container_name: ${SERVER_CONTAINER_NAME:-gridllm-server-container}
         restart: unless-stopped
         ports:
-            - "${SERVER_PORT:-4000}:4000"
+            - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
         networks:
             - gridllm-network
         depends_on:

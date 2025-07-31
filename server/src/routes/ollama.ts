@@ -614,30 +614,76 @@ export const ollamaRoutes = (
 	router.get(
 		"/api/tags",
 		asyncHandler(async (req: Request, res: Response) => {
-			const allWorkers = workerRegistry.getAllWorkers();
-			const modelsMap = new Map<string, OllamaModel>();
+			try {
+				const allWorkers = workerRegistry.getAllWorkers();
+				const modelsMap = new Map<string, any>();
+				const modelWorkerCount = new Map<string, number>();
 
-			// Aggregate models from all workers
-			for (const worker of allWorkers) {
-				for (const model of worker.capabilities.availableModels) {
-					if (!modelsMap.has(model.name)) {
-						modelsMap.set(model.name, {
-							name: model.name,
-							model: model.name,
-							modified_at: model.modified_at,
-							size: model.size,
-							digest: model.digest,
-							details: model.details,
-						} as any);
+				// Aggregate models from all workers
+				for (const worker of allWorkers) {
+					if (
+						worker.capabilities &&
+						worker.capabilities.availableModels
+					) {
+						for (const model of worker.capabilities
+							.availableModels) {
+							// Count workers that have this model
+							const currentCount =
+								modelWorkerCount.get(model.name) || 0;
+							modelWorkerCount.set(model.name, currentCount + 1);
+
+							if (!modelsMap.has(model.name)) {
+								modelsMap.set(model.name, {
+									name: model.name,
+									model: model.name,
+									modified_at:
+										model.modified_at ||
+										new Date().toISOString(),
+									size: model.size || 0,
+									digest: model.digest || "",
+									details: model.details || {
+										parent_model: "",
+										format: "gguf",
+										family: "unknown",
+										families: ["unknown"],
+										parameter_size: "Unknown",
+										quantization_level: "Unknown",
+									},
+									gridllm_metadata: {
+										num_workers_with_model: 0, // Will be updated below
+									},
+								});
+							}
+						}
 					}
 				}
+
+				// Update worker counts for each model
+				for (const [modelName, modelData] of modelsMap.entries()) {
+					modelData.gridllm_metadata.num_workers_with_model =
+						modelWorkerCount.get(modelName) || 0;
+				}
+
+				const models = Array.from(modelsMap.values()).sort((a, b) =>
+					a.name.localeCompare(b.name)
+				);
+
+				logger.info("API/tags request completed", {
+					modelsCount: models.length,
+					workersCount: allWorkers.length,
+				});
+
+				res.json({ models });
+			} catch (error) {
+				logger.error("Error in /api/tags endpoint", error);
+				res.status(500).json({
+					error: "Internal server error",
+					message:
+						error instanceof Error
+							? error.message
+							: "Unknown error",
+				});
 			}
-
-			const models = Array.from(modelsMap.values()).sort((a, b) =>
-				a.name.localeCompare(b.name)
-			);
-
-			res.json({ models });
 		})
 	);
 
