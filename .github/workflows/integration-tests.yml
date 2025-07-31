@@ -19,13 +19,9 @@ jobs:
 
             - name: Start Ollama container
               run: |
-                  # Create the network first if it doesn't exist
-                  docker network create gridllm-network 2>/dev/null || true
-
                   docker run -d \
                     --name ollama-test \
                     -p 11434:11434 \
-                    --network gridllm-network \
                     ollama/ollama:latest
 
                   # Wait for Ollama to be ready
@@ -55,16 +51,19 @@ jobs:
               run: |
                   docker compose build --no-cache
 
-            - name: Connect Ollama to compose network
+            - name: Start services and connect Ollama
               run: |
-                  # Connect Ollama container to the compose network
-                  COMPOSE_NETWORK=$(docker network ls --filter name=gridllm --format "{{.Name}}" | grep gridllm | head -1)
-                  echo "Connecting ollama-test to network: $COMPOSE_NETWORK"
+                  # Start compose services first to create the network
+                  npm run bundle:full
+
+                  # Find the compose network and connect Ollama to it
+                  COMPOSE_NETWORK=$(docker network ls --filter name=gridllm --format "{{.Name}}" | head -1)
+                  echo "Connecting ollama-test to compose network: $COMPOSE_NETWORK"
                   docker network connect "$COMPOSE_NETWORK" ollama-test
 
-            - name: Start services
-              run: |
-                  npm run bundle:full
+                  # Verify connection
+                  echo "Networks for ollama-test:"
+                  docker inspect ollama-test --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
 
             - name: Wait for services to be healthy
               run: |
