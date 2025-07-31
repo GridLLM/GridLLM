@@ -48,7 +48,7 @@ services:
             - NODE_ENV=${NODE_ENV:-development}
             - PORT=${SERVER_PORT:-4000}
             - REDIS_HOST=redis
-            - REDIS_PORT=${REDIS_PORT:-6379}
+            - REDIS_PORT=6379
             - REDIS_PASSWORD=${REDIS_PASSWORD:-}
             - REDIS_DB=${REDIS_DB:-0}
             - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-GridLLM:}
@@ -72,7 +72,7 @@ services:
                     "--no-verbose",
                     "--tries=1",
                     "--spider",
-                    "http://localhost:4000/health",
+                    "http://localhost:${SERVER_PORT:-4000}/health",
                 ]
             interval: 30s
             timeout: 10s
@@ -102,7 +102,7 @@ services:
             - SERVER_HOST=server
             - SERVER_PORT=${SERVER_PORT:-4000}
             - SERVER_REDIS_HOST=redis
-            - SERVER_REDIS_PORT=${REDIS_PORT:-6379}
+            - SERVER_REDIS_PORT=6379
             - SERVER_REDIS_PASSWORD=${REDIS_PASSWORD:-}
             - REDIS_DB=${REDIS_DB:-0}
             - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-GridLLM:}
@@ -136,7 +136,7 @@ services:
                     "--no-verbose",
                     "--tries=1",
                     "--spider",
-                    "http://localhost:3000/health",
+                    "http://localhost:${CLIENT_PORT:-3000}/health",
                 ]
             interval: 30s
             timeout: 10s
