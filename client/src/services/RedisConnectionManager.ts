@@ -159,7 +159,7 @@ export class RedisConnectionManager {
 		try {
 			// Try to notify server about disconnection if possible
 			// Use a different Redis connection or the publisher if it's still available
-			if (this.publisher && this.publisher.status === "ready") {
+			if (this.publisher && this.publisher.status === RedisConnectionStatus.READY) {
 				const workerId = config.worker.id;
 				if (workerId) {
 					await this.publisher.publish(

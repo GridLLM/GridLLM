@@ -40,7 +40,8 @@ export class WorkerRegistry extends EventEmitter {
 			await this.redis.subscribe(
 				"worker:disconnected",
 				this.handleWorkerDisconnected.bind(this)
-			); // Load existing workers from Redis
+			);
+			// Load existing workers from Redis
 			await this.loadExistingWorkers();
 
 			// Start cleanup interval
@@ -208,7 +209,7 @@ export class WorkerRegistry extends EventEmitter {
 				const worker = this.workers.get(workerId);
 
 				if (worker && worker.currentJobs > 0) {
-					logger.error(
+					logger.warn(
 						`Stale worker ${workerId} had ${worker.currentJobs} active jobs - redistributing to queue`
 					);
 				}
