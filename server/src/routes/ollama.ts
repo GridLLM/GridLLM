@@ -295,46 +295,58 @@ export const ollamaRoutes = (
 					res.setHeader("Content-Type", "application/json");
 					res.setHeader("Transfer-Encoding", "chunked");
 
-					// TODO: Implement streaming response
-					// For now, we'll simulate streaming by getting the full response and streaming it
-					const result = await jobScheduler.submitAndWait(
-						inferenceRequest
-					);
-					const ollamaResponse = convertToOllamaResponse(
-						result,
-						validatedData.model
-					);
+					// Use real streaming from JobScheduler
+					await jobScheduler.submitStreamingJob(
+						inferenceRequest,
+						// onChunk callback - called for each streaming chunk
+						(chunk) => {
+							logger.info("Received streaming chunk", {
+								jobId: inferenceRequest.id,
+								chunk: chunk,
+								chunkKeys: Object.keys(chunk),
+							});
 
-					// Stream the response in chunks
-					const responseText = ollamaResponse.response;
-					const chunkSize = 10; // Characters per chunk
+							const ollamaChunk = convertToOllamaResponse(
+								chunk,
+								validatedData.model
+							);
+							logger.info("Converted to Ollama format", {
+								jobId: inferenceRequest.id,
+								ollamaChunk: ollamaChunk,
+							});
 
-					for (let i = 0; i < responseText.length; i += chunkSize) {
-						const chunk = responseText.slice(i, i + chunkSize);
-						const streamData: any = {
-							...ollamaResponse,
-							response: chunk,
-							done: i + chunkSize >= responseText.length,
-						};
-
-						if (!streamData.done) {
-							delete streamData.total_duration;
-							delete streamData.load_duration;
-							delete streamData.prompt_eval_count;
-							delete streamData.prompt_eval_duration;
-							delete streamData.eval_count;
-							delete streamData.eval_duration;
-							delete streamData.context;
-							// Keep thinking in all chunks if present
+							streamResponse(res, ollamaChunk);
+						},
+						// onComplete callback - called when streaming is done
+						(result) => {
+							const finalResponse = convertToOllamaResponse(
+								result,
+								validatedData.model
+							);
+							streamResponse(res, finalResponse);
+							res.end();
+						},
+						// onError callback - called if there's an error
+						(error) => {
+							logger.job(
+								inferenceRequest.id,
+								"Ollama generate streaming request failed",
+								{
+									error: error.message,
+								}
+							);
+							// Send error as Ollama-compatible response
+							const errorResponse = {
+								model: validatedData.model,
+								created_at: new Date().toISOString(),
+								response: "",
+								done: true,
+								error: error.message,
+							};
+							streamResponse(res, errorResponse);
+							res.end();
 						}
-
-						streamResponse(res, streamData);
-
-						// Small delay to simulate streaming
-						await new Promise((resolve) => setTimeout(resolve, 50));
-					}
-
-					res.end();
+					);
 				} else {
 					const result = await jobScheduler.submitAndWait(
 						inferenceRequest
@@ -447,34 +459,39 @@ export const ollamaRoutes = (
 					res.setHeader("Content-Type", "application/json");
 					res.setHeader("Transfer-Encoding", "chunked");
 
-					const result = await jobScheduler.submitAndWait(
-						inferenceRequest
-					);
-					const responseText = result.response || "";
-					const chunkSize = 10;
+					await jobScheduler.submitStreamingJob(
+						inferenceRequest,
+						// onChunk callback
+						(chunk) => {
+							const chatChunk: any = {
+								model: validatedData.model,
+								created_at: new Date().toISOString(),
+								message: {
+									role: "assistant",
+									content: chunk.response || "",
+									images: null,
+								},
+								done: chunk.done || false,
+							};
 
-					for (let i = 0; i < responseText.length; i += chunkSize) {
-						const chunk = responseText.slice(i, i + chunkSize);
-						const streamData: any = {
-							model: validatedData.model,
-							created_at: new Date().toISOString(),
-							message: {
-								role: "assistant",
-								content: chunk,
-								images: null,
-							},
-							done: i + chunkSize >= responseText.length,
-						};
+							// Include thinking field if present
+							if (chunk.thinking) {
+								(chatChunk.message as any).thinking =
+									chunk.thinking;
+							}
 
-						// Include thinking field if present
-						if (result.thinking) {
-							streamData.message.thinking = result.thinking;
-						}
-
-						if (streamData.done) {
-							streamData.done = true;
-							// Add final metadata
-							Object.assign(streamData, {
+							streamResponse(res, chatChunk);
+						},
+						// onComplete callback
+						(result) => {
+							const finalChatResponse: any = {
+								model: validatedData.model,
+								created_at: new Date().toISOString(),
+								message: {
+									role: "assistant",
+									content: result.response || "",
+								},
+								done: true,
 								total_duration: result.total_duration || 0,
 								load_duration: result.load_duration || 0,
 								prompt_eval_count:
@@ -483,14 +500,37 @@ export const ollamaRoutes = (
 									result.prompt_eval_duration || 0,
 								eval_count: result.eval_count || 0,
 								eval_duration: result.eval_duration || 0,
-							});
+							};
+
+							// Include thinking field if present
+							if (result.thinking) {
+								(finalChatResponse.message as any).thinking =
+									result.thinking;
+							}
+
+							streamResponse(res, finalChatResponse);
+							res.end();
+						},
+						// onError callback
+						(error) => {
+							logger.job(
+								inferenceRequest.id,
+								"Ollama chat streaming request failed",
+								{
+									error: error.message,
+								}
+							);
+							const errorResponse = {
+								model: validatedData.model,
+								created_at: new Date().toISOString(),
+								message: { role: "assistant", content: "" },
+								done: true,
+								error: error.message,
+							};
+							streamResponse(res, errorResponse);
+							res.end();
 						}
-
-						streamResponse(res, streamData);
-						await new Promise((resolve) => setTimeout(resolve, 50));
-					}
-
-					res.end();
+					);
 				} else {
 					const result = await jobScheduler.submitAndWait(
 						inferenceRequest

@@ -174,8 +174,8 @@ export class BrokerClientService extends EventEmitter {
 			resources.totalMemoryMB >= 16384
 				? 3
 				: resources.totalMemoryMB >= 8192
-					? 2
-					: 1;
+				? 2
+				: 1;
 		const gpuScore = resources.gpuMemoryMB
 			? resources.gpuMemoryMB >= 16384
 				? 3
@@ -518,14 +518,28 @@ export class BrokerClientService extends EventEmitter {
 			let result: InferenceResponse | undefined;
 
 			if (request.stream) {
-				// For streaming, we'll collect the full response
-				// In a real implementation, you'd want to stream this back
+				// For streaming, publish each chunk as it arrives
 				let fullResponse = "";
 				for await (const chunk of this.ollamaService.generateStreamResponse(
 					request
 				)) {
 					fullResponse += chunk.response;
 					await job.updateProgress(25 + (chunk.done ? 50 : 25));
+
+					// Publish streaming chunk to the stream channel
+					await this.redisManager.publish(
+						`job:stream:${request.id}`,
+						JSON.stringify({
+							jobId: request.id,
+							workerId: config.worker.id,
+							chunk: {
+								id: chunk.id,
+								response: chunk.response,
+								done: chunk.done,
+							},
+							timestamp: new Date().toISOString(),
+						})
+					);
 
 					if (chunk.done) {
 						result = {
