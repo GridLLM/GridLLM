@@ -41,7 +41,7 @@ jobs:
 
             - name: Start services
               run: |
-                  docker compose up -d
+                  npm run bundle:full
 
             - name: Wait for services to be healthy
               run: |
