@@ -771,11 +771,27 @@ export class JobScheduler extends EventEmitter {
 						timeout: request.timeout || config.jobs.timeout,
 					}
 				);
-				this.redis.unsubscribe(streamChannel);
-				this.redis.unsubscribe(resultChannel);
+				try {
+					this.redis.unsubscribe(streamChannel);
+				} catch (error) {
+					logger.error("Failed to unsubscribe from streamChannel", {
+						streamChannel,
+						requestId: request.id,
+						error,
+					});
+				}
+				try {
+					this.redis.unsubscribe(resultChannel);
+				} catch (error) {
+					logger.error("Failed to unsubscribe from resultChannel", {
+						resultChannel,
+						requestId: request.id,
+						error,
+					});
+				}
 				onError(
 					new Error(
-						`Streaming job ${request.id} timed out after ${request.timeout}ms`
+						`Streaming job ${request.id} timed out after ${request.timeout || config.jobs.timeout}ms`
 					)
 				);
 			}, request.timeout || config.jobs.timeout);
@@ -819,8 +835,22 @@ export class JobScheduler extends EventEmitter {
 					const data = JSON.parse(message);
 					if (data.jobId === request.id) {
 						clearTimeout(timeout);
-						this.redis.unsubscribe(streamChannel);
-						this.redis.unsubscribe(resultChannel);
+						try {
+							this.redis.unsubscribe(streamChannel);
+						} catch (error) {
+							logger.error("Failed to unsubscribe from streamChannel in handleResult", {
+								streamChannel,
+								error,
+							});
+						}
+						try {
+							this.redis.unsubscribe(resultChannel);
+						} catch (error) {
+							logger.error("Failed to unsubscribe from resultChannel in handleResult", {
+								resultChannel,
+								error,
+							});
+						}
 
 						if (data.error) {
 							onError(new Error(data.error));
