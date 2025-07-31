@@ -106,7 +106,7 @@ jobs:
             - name: Test /ollama Endpoints
               run: |
                   echo "Testing POST /ollama/api/generate"
-                  curl -f -X POST -H "Content-Type: application/json" -d '{"prompt": "What country is New York in? Answer in just the country.", "model": "qwen2.5:0.5b"}' http://localhost:4000/api/generate
+                  curl -f -X POST -H "Content-Type: application/json" -d '{"prompt": "What country is New York in? Answer in just the country.", "model": "qwen2.5:0.5b"}' http://localhost:4000/ollama/api/generate
 
             - name: Show service logs on failure
               if: failure()
