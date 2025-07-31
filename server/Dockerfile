@@ -34,13 +34,13 @@ RUN mkdir -p logs
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S llmama -u 1001 -G nodejs
+    adduser -S gridllm -u 1001 -G nodejs
 
 # Change ownership of the app directory
-RUN chown -R llmama:nodejs /app
+RUN chown -R gridllm:nodejs /app
 
 # Switch to non-root user
-USER llmama
+USER gridllm
 
 # Expose the port the app runs on
 EXPOSE 4000

@@ -11,11 +11,11 @@
 		"test:watch": "jest --watch",
 		"lint": "eslint src/**/*.ts",
 		"lint:fix": "eslint src/**/*.ts --fix",
-		"docker:build": "docker build -t llmama-server .",
-		"docker:run": "docker run -p 4000:4000 --name llmama-server-container llmama-server",
-		"docker:stop": "docker stop llmama-server-container",
-		"docker:clean": "docker rm llmama-server-container",
-		"docker:logs": "docker logs llmama-server-container"
+		"docker:build": "docker build -t gridllm-server .",
+		"docker:run": "docker run -p 4000:4000 --name gridllm-server-container gridllm-server",
+		"docker:stop": "docker stop gridllm-server-container",
+		"docker:clean": "docker rm gridllm-server-container",
+		"docker:logs": "docker logs gridllm-server-container"
 	},
 	"keywords": [
 		"ai",

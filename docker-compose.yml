@@ -1,0 +1,142 @@
+version: "3.8"
+
+networks:
+    gridllm-network:
+        driver: bridge
+
+volumes:
+    redis-data:
+        driver: local
+    server-logs:
+        driver: local
+
+services:
+    redis:
+        image: redis:7-alpine
+        container_name: gridllm-redis
+        restart: unless-stopped
+        ports:
+            - "${REDIS_PORT:-6379}:6379"
+        networks:
+            - gridllm-network
+        volumes:
+            - redis-data:/data
+        command: redis-server --appendonly yes
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 3s
+            retries: 5
+        environment:
+            - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+    server:
+        build:
+            context: ./server
+            dockerfile: Dockerfile
+        image: ${SERVER_IMAGE_NAME:-gridllm-server}
+        container_name: ${SERVER_CONTAINER_NAME:-gridllm-server-container}
+        restart: unless-stopped
+        ports:
+            - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
+        networks:
+            - gridllm-network
+        depends_on:
+            redis:
+                condition: service_healthy
+        volumes:
+            - server-logs:/app/logs
+        environment:
+            - NODE_ENV=${NODE_ENV:-development}
+            - PORT=${SERVER_PORT:-4000}
+            - REDIS_HOST=redis
+            - REDIS_PORT=${REDIS_PORT:-6379}
+            - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+            - REDIS_DB=${REDIS_DB:-0}
+            - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-GridLLM:}
+            - WORKER_TIMEOUT=${WORKER_TIMEOUT:-300000}
+            - WORKER_HEARTBEAT_TIMEOUT=${WORKER_HEARTBEAT_TIMEOUT:-60000}
+            - WORKER_CLEANUP_INTERVAL=${WORKER_CLEANUP_INTERVAL:-30000}
+            - JOB_TIMEOUT=${JOB_TIMEOUT:-600000}
+            - TASK_RETRY_ATTEMPTS=${TASK_RETRY_ATTEMPTS:-3}
+            - TASK_RETRY_DELAY=${TASK_RETRY_DELAY:-5000}
+            - MAX_CONCURRENT_JOBS_PER_WORKER=${MAX_CONCURRENT_JOBS_PER_WORKER:-1}
+            - LOG_LEVEL=${LOG_LEVEL:-info}
+            - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-60000}
+            - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-60000}
+            - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+            - CORS_ORIGIN=${CORS_ORIGIN:-*}
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "curl",
+                    "-f",
+                    "http://localhost:${SERVER_PORT:-4000}/health",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+
+    client:
+        build:
+            context: ./client
+            dockerfile: Dockerfile
+        image: ${CLIENT_IMAGE_NAME:-gridllm-client}
+        container_name: ${CLIENT_CONTAINER_NAME:-gridllm-client-container}
+        restart: unless-stopped
+        ports:
+            - "${CLIENT_PORT:-3000}:${CLIENT_PORT:-3000}"
+        networks:
+            - gridllm-network
+        depends_on:
+            server:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        environment:
+            - NODE_ENV=${NODE_ENV:-development}
+            - PORT=${CLIENT_PORT:-3000}
+            - WORKER_ID=${WORKER_ID:-worker-docker-001}
+            - SERVER_HOST=server
+            - SERVER_PORT=${SERVER_PORT:-4000}
+            - SERVER_REDIS_HOST=redis
+            - SERVER_REDIS_PORT=${REDIS_PORT:-6379}
+            - SERVER_REDIS_PASSWORD=${REDIS_PASSWORD:-}
+            - REDIS_DB=${REDIS_DB:-0}
+            - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-GridLLM:}
+            - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal}
+            - OLLAMA_PORT=${OLLAMA_PORT:-11434}
+            - OLLAMA_PROTOCOL=${OLLAMA_PROTOCOL:-http}
+            - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-300000}
+            - OLLAMA_MAX_RETRIES=${OLLAMA_MAX_RETRIES:-3}
+            - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+            - WORKER_MAX_CONCURRENT_JOBS=${WORKER_MAX_CONCURRENT_JOBS:-1}
+            - WORKER_POLL_INTERVAL=${WORKER_POLL_INTERVAL:-1000}
+            - WORKER_RESOURCE_CHECK_INTERVAL=${WORKER_RESOURCE_CHECK_INTERVAL:-10000}
+            - MAX_CPU_USAGE=${MAX_CPU_USAGE:-80}
+            - MAX_MEMORY_USAGE=${MAX_MEMORY_USAGE:-85}
+            - MAX_GPU_MEMORY_USAGE=${MAX_GPU_MEMORY_USAGE:-90}
+            - MIN_AVAILABLE_MEMORY_MB=${MIN_AVAILABLE_MEMORY_MB:-1024}
+            - API_KEY=${API_KEY:-worker-api-key}
+            - LOG_LEVEL=${LOG_LEVEL:-info}
+            - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-60000}
+            - TASK_TIMEOUT=${TASK_TIMEOUT:-600000}
+            - TASK_RETRY_ATTEMPTS=${TASK_RETRY_ATTEMPTS:-3}
+            - TASK_RETRY_DELAY=${TASK_RETRY_DELAY:-5000}
+            - RATE_LIMIT_WINDOW=${RATE_LIMIT_WINDOW:-60000}
+            - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+            - CORS_ORIGIN=${CORS_ORIGIN:-*}
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "curl",
+                    "-f",
+                    "http://localhost:${CLIENT_PORT:-3000}/health",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
