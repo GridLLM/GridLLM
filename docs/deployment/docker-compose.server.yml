@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  gridllm-server:
+    image: campinator/gridllm-server:latest
+    container_name: gridllm-server
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - REDIS_HOST=gridllm-redis
+    ports:
+      - "4000:4000"
+    networks:
+      - gridllm-net
+
+networks:
+  gridllm-net:
+    driver: bridge

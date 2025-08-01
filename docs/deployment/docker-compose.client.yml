@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  gridllm-client:
+    image: campinator/gridllm-client:latest
+    container_name: gridllm-client
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - WORKER_ID=${WORKER_ID:-worker-001}
+      - SERVER_HOST=gridllm-server
+      - SERVER_PORT=4000
+      - SERVER_REDIS_HOST=gridllm-redis
+      - SERVER_REDIS_PORT=6379
+      - OLLAMA_HOST=gridllm-ollama
+      - OLLAMA_PORT=11434
+    networks:
+      - gridllm-net
+
+networks:
+  gridllm-net:
+    driver: bridge

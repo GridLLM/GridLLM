@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  gridllm-redis:
+    image: redis:7-alpine
+    container_name: gridllm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - gridllm-net
+
+  gridllm-ollama:
+    image: ollama/ollama:latest
+    container_name: gridllm-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    networks:
+      - gridllm-net
+
+networks:
+  gridllm-net:
+    driver: bridge
