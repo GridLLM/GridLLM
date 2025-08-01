@@ -50,6 +50,50 @@ npm run dev:server
 npm run dev:client
 ```
 
+## Switching from Ollama to GridLLM
+
+GridLLM provides **100% API compatibility** with Ollama. To switch your existing applications from Ollama to GridLLM's distributed system, simply change your base URL:
+
+**Before (Ollama):**
+```
+http://localhost:11434
+```
+
+**After (GridLLM):**
+```
+http://localhost:4000/ollama
+```
+
+That's it! All your existing Ollama API calls will work unchanged:
+
+```bash
+# Your existing Ollama calls work as-is
+curl -X POST http://localhost:4000/ollama/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama3.2",
+    "prompt": "Hello world",
+    "stream": false
+  }'
+
+curl -X POST http://localhost:4000/ollama/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama3.2",
+    "messages": [{"role": "user", "content": "Hi there!"}]
+  }'
+
+curl http://localhost:4000/ollama/api/tags
+```
+
+Your applications will now automatically benefit from:
+- **Distributed processing** across multiple workers
+- **Intelligent load balancing** 
+- **Automatic failover** if workers go down
+- **Better resource utilization** across your infrastructure
+
+No code changes required - just update the endpoint URL in your configuration.
+
 ## Architecture Overview
 
 GridLLM consists of three main components working together:
