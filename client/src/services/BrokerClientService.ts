@@ -445,19 +445,6 @@ export class BrokerClientService extends EventEmitter {
 			const systemResources =
 				await this.ollamaService.getSystemResources();
 
-			// Check if resources are within acceptable limits
-			// if (this.shouldPauseWorker(systemResources)) {
-			//   logger.warn('Resource usage high, pausing worker', {
-			//     cpuUsage: systemResources.cpuUsagePercent,
-			//     memoryUsage: systemResources.memoryUsagePercent,
-			//   });
-
-			//   if (this.workQueueService) {
-			//     await this.workQueueService.pause();
-			//   }
-			//   return;
-			// }
-
 			// Resume worker if it was paused
 			if (this.workQueueService) {
 				await this.workQueueService.resume();
@@ -481,18 +468,6 @@ export class BrokerClientService extends EventEmitter {
 		} catch (error) {
 			logger.error("Failed to update capabilities", error);
 		}
-	}
-
-	private shouldPauseWorker(resources: SystemResources): boolean {
-		return (
-			resources.cpuUsagePercent > config.performance.maxCpuUsage ||
-			resources.memoryUsagePercent > config.performance.maxMemoryUsage ||
-			resources.availableMemoryMB <
-				config.performance.minAvailableMemoryMB ||
-			(resources.gpuUsagePercent !== undefined &&
-				resources.gpuUsagePercent >
-					config.performance.maxGpuMemoryUsage)
-		);
 	}
 
 	private async processInferenceJob(

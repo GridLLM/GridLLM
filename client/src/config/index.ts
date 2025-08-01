@@ -39,16 +39,6 @@ const envSchema = Joi.object({
 	WORKER_POLL_INTERVAL: Joi.number().default(1000),
 	WORKER_RESOURCE_CHECK_INTERVAL: Joi.number().default(10000),
 
-	// Performance Thresholds
-	MAX_CPU_USAGE: Joi.number().default(80),
-	MAX_MEMORY_USAGE: Joi.number().default(85),
-	MAX_GPU_MEMORY_USAGE: Joi.number().default(90),
-	MIN_AVAILABLE_MEMORY_MB: Joi.number().default(1024),
-
-	// Security (simplified for worker)
-	API_KEY: Joi.string().default("worker-api-key"),
-	JWT_SECRET: Joi.string().default("your-jwt-secret-key"),
-
 	// Monitoring & Logging
 	LOG_LEVEL: Joi.string()
 		.valid("error", "warn", "info", "debug")
@@ -112,18 +102,6 @@ export const config = {
 		maxConcurrentJobs: envVars.WORKER_MAX_CONCURRENT_JOBS,
 		pollInterval: envVars.WORKER_POLL_INTERVAL,
 		resourceCheckInterval: envVars.WORKER_RESOURCE_CHECK_INTERVAL,
-	},
-
-	performance: {
-		maxCpuUsage: envVars.MAX_CPU_USAGE,
-		maxMemoryUsage: envVars.MAX_MEMORY_USAGE,
-		maxGpuMemoryUsage: envVars.MAX_GPU_MEMORY_USAGE,
-		minAvailableMemoryMB: envVars.MIN_AVAILABLE_MEMORY_MB,
-	},
-
-	security: {
-		apiKey: envVars.API_KEY,
-		jwtSecret: envVars.JWT_SECRET,
 	},
 
 	logging: {
