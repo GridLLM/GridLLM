@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+*/dist/
+build/
+
+# Logs
+logs/
+*/logs/
+*.log
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Git
+.git/
+.gitignore
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+
+# Package lock files
+package-lock.json
+yarn.lock
+
+# Compiled JavaScript (if TypeScript source exists)
+**/*.js
+**/*.js.map
+!jest.config.js
+!*.config.js
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation that shouldn't be formatted
+README.md
+CHANGELOG.md
+LICENSE
