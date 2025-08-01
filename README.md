@@ -2,415 +2,485 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3%2B-blue.svg)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docker.com/)
+[![Redis](https://img.shields.io/badge/Redis-7.0%2B-red.svg)](https://redis.io/)
+[![Ollama](https://img.shields.io/badge/Ollama-Compatible-orange.svg)](https://ollama.ai/)
 
-GridLLM is a **distributed AI inference system** that enables horizontal scaling of large language model (LLM) processing across multiple workers. It provides a centralized server that coordinates AI inference requests across a network of worker nodes, offering **Ollama API compatibility** and **intelligent load balancing**.
+GridLLM is a **production-ready distributed AI inference system** that enables horizontal scaling of large language model (LLM) processing across multiple workers. It provides a centralized server that coordinates AI inference requests across a network of worker nodes, offering **complete Ollama API compatibility** and **intelligent load balancing** with enterprise-grade features.
 
-## Architecture Overview
+For support, please join our official [discord server](https://discord.com/channels/1400687383342743552/1400687384089198724)
 
-GridLLM consists of three main components:
+## Quick Start
 
-### 1. **Central Server** (`/server`)
-
--   **Job Scheduling**: Intelligently distributes inference requests across available workers
--   **Worker Registry**: Tracks worker capabilities, status, and performance metrics
--   **Load Balancing**: Routes requests to optimal workers based on model availability and load
--   **API Gateway**: Provides both native and Ollama-compatible API endpoints
--   **Health Monitoring**: Continuous health checks and worker status management
-
-### 2. **Worker Clients** (`/client`)
-
--   **Ollama Integration**: Connects to local Ollama instances for model inference
--   **Capability Detection**: Automatically discovers available models and system resources
--   **Job Processing**: Handles inference requests from the central server
--   **Performance Tiering**: Self-classifies into high/medium/low performance tiers
--   **Auto-Registration**: Automatically registers with the central server
-
-## Key Features
-
-### **Distributed Architecture**
-
--   **Horizontal Scaling**: Add more workers to increase capacity
--   **Fault Tolerance**: Automatic failover when workers become unavailable
--   **Load Balancing**: Intelligent request distribution based on worker capabilities
--   **Real-time Monitoring**: Live tracking of worker status and job queues
-
-### **Ollama API Compatibility**
-
--   **Drop-in Replacement**: Compatible with existing Ollama clients
--   **Complete API Coverage**: All Ollama endpoints supported (`/ollama/*`)
--   **Streaming Support**: Real-time token streaming for chat applications
--   **Model Management**: Distributed model availability across workers
--   **Thinking Models**: Support for `think` parameter to get reasoning from thinking models
-
-### **Advanced Job Scheduling**
-
--   **Priority Queues**: High/medium/low priority job processing
--   **Timeout Management**: Configurable timeouts with automatic cleanup
--   **Worker Selection**: Optimal worker assignment based on:
-    -   Model availability
-    -   Current load
-    -   Performance tier
-    -   Resource utilization
-
-### **Enterprise Ready**
-
--   **Redis Integration**: Robust job queuing with BullMQ
--   **Authentication**: JWT and API key support
--   **Rate Limiting**: Configurable request throttling
--   **Comprehensive Logging**: Structured logging with Winston
--   **Health Endpoints**: Detailed system status monitoring
-
-## Installation
-
-### Prerequisites
-
--   **Node.js 18+**
--   **Redis Server** (for job queuing)
--   **Ollama** (installed on worker nodes)
--   **npm** or **yarn**
-
-### Quick Start
-
-1. **Clone the repository**
+### Using Docker Compose (Recommended)
 
 ```bash
-git clone https://github.com/jwstanwick/GridLLM.git
+# Clone the repository
+git clone https://github.com/GridLLM/GridLLM.git
 cd GridLLM
+
+# Start the complete system (Server + Redis + Client)
+npm run bundle:full
+
+# Or start just server + Redis (add clients separately)
+npm run bundle
+
+# Check system status
+npm run status
 ```
 
-2. **Install dependencies for both server and client**
+### Manual Setup
 
 ```bash
-make install
-```
+# Install dependencies
+npm run install:all
 
-3. **Set up environment configuration**
-
-```bash
-# Copy example environment files
+# Configure environment variables
+cp .env.example .env
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 
-# Edit configuration files as needed
-nano server/.env
-nano client/.env
-```
-
-4. **Start Redis server** (if not already running)
-
-```bash
+# Start Redis (required)
 redis-server
+
+# Start server
+npm run dev:server
+
+# Start worker client(s)
+npm run dev:client
 ```
 
-5. **Start the central server**
+## Switching from Ollama to GridLLM
+
+GridLLM provides **100% API compatibility** with Ollama. To switch your existing applications from Ollama to GridLLM's distributed system, simply change your base URL:
+
+**Before (Ollama):**
+```
+http://localhost:11434
+```
+
+**After (GridLLM):**
+```
+http://localhost:4000/ollama
+```
+
+That's it! All your existing Ollama API calls will work unchanged:
 
 ```bash
-make run-server
-```
-
-6. **Start worker clients** (on each machine with Ollama)
-
-```bash
-make run-client
-```
-
-## Docker Deployment
-
-GridLLM supports Docker deployment with configurable environment variables through a global `.env` file.
-
-### Docker Configuration
-
-1. **Copy the global environment template**
-
-```bash
-cp .env.example .env
-```
-
-2. **Configure Docker environment variables**
-
-```env
-# Network Configuration
-DOCKER_NETWORK=bridge
-
-# Server Configuration
-SERVER_PORT=4000
-SERVER_CONTAINER_NAME=gridllm-server-container
-SERVER_IMAGE_NAME=gridllm-server
-
-# Client Configuration
-CLIENT_PORT=3000
-CLIENT_CONTAINER_NAME=gridllm-client-container
-CLIENT_IMAGE_NAME=gridllm-client
-WORKER_ID=worker-docker-001
-
-# Redis Configuration (adjust for your Redis setup)
-REDIS_HOST=host.docker.internal
-REDIS_PORT=6379
-
-# Ollama Configuration (adjust for your Ollama setup)
-OLLAMA_HOST=host.docker.internal
-OLLAMA_PORT=11434
-OLLAMA_PROTOCOL=http
-```
-
-### Docker Commands
-
-All Docker commands use the environment variables from your `.env` file:
-
-```bash
-# Build Docker images
-make docker-build          # Build both server and client images
-make docker-build-server   # Build server image only
-make docker-build-client   # Build client image only
-
-# Run containers
-make docker-run            # Start both containers
-make docker-run-server     # Start server container only
-make docker-run-client     # Start client container only
-
-# Management
-make docker-stop           # Stop all containers
-make docker-clean          # Remove containers and images
-make docker-logs           # View container logs
-make docker-status         # Check container status
-```
-
-### Docker Network Setup
-
-For production deployments, consider creating a custom Docker network:
-
-```bash
-# Create a custom network
-docker network create gridllm-network
-
-# Update .env file
-DOCKER_NETWORK=gridllm-network
-
-# Deploy Redis in the same network
-docker run -d --name redis --network gridllm-network redis:alpine
-
-# Update Redis host in .env
-REDIS_HOST=redis
-```
-
-## Configuration
-
-### Server Configuration (`server/.env`)
-
-```env
-# Server Settings
-NODE_ENV=development
-PORT=4000
-SERVER_ID=gridllm-server-1
-
-# Redis Configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# Security
-CORS_ORIGIN=*
-API_KEY_ENABLED=false
-JWT_SECRET=your-secret-key
-
-# Job Processing
-DEFAULT_JOB_TIMEOUT=300000
-MAX_CONCURRENT_JOBS=100
-WORKER_HEARTBEAT_INTERVAL=30000
-```
-
-### Worker Configuration (`client/.env`)
-
-```env
-# Worker Settings
-NODE_ENV=development
-PORT=3000
-WORKER_ID=worker-1
-
-# Server Connection
-SERVER_HOST=localhost
-SERVER_PORT=4000
-
-# Ollama Configuration
-OLLAMA_HOST=localhost
-OLLAMA_PORT=11434
-
-# Performance
-MAX_CONCURRENT_TASKS=3
-PERFORMANCE_TIER=auto
-```
-
-## 🛠️ Development Commands
-
-GridLLM includes a comprehensive Makefile for development:
-
-```bash
-# Installation
-make install          # Install all dependencies
-make install-server   # Install server dependencies only
-make install-client   # Install client dependencies only
-
-# Development
-make run-server       # Start server in development mode
-make run-client       # Start client in development mode
-
-# Building
-make build-server     # Build server for production
-make build-client     # Build client for production
-
-# Utilities
-make logs-server      # View server logs
-make logs-client      # View client logs
-make clean           # Clean build artifacts and logs
-make test            # Run test suites
-make format          # Format code with Prettier
-make status          # Check system status
-
-# Setup
-make setup           # Complete development environment setup
-```
-
-## API Usage
-
-### Native GridLLM API
-
-#### Submit Inference Request
-
-```bash
-curl -X POST http://localhost:4000/inference \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "llama3.2",
-    "prompt": "Explain quantum computing",
-    "priority": "high",
-    "stream": false
-  }'
-```
-
-#### Check Job Status
-
-```bash
-curl http://localhost:4000/inference/{job-id}/status
-```
-
-#### List Available Models
-
-```bash
-curl http://localhost:4000/inference/models
-```
-
-#### View Queue Statistics
-
-```bash
-curl http://localhost:4000/inference/queue
-```
-
-### Ollama-Compatible API
-
-#### Generate Completion
-
-```bash
+# Your existing Ollama calls work as-is
 curl -X POST http://localhost:4000/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama3.2",
-    "prompt": "What is the capital of France?",
+    "prompt": "Hello world",
     "stream": false
   }'
-```
 
-#### Generate Completion with Thinking (for thinking models)
-
-```bash
-curl -X POST http://localhost:4000/ollama/api/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "qwen3:14b",
-    "prompt": "What is the capital of the US?",
-    "think": true,
-    "stream": false
-  }'
-```
-
-Response with thinking:
-
-```json
-{
-	"model": "qwen3:14b",
-	"created_at": "2025-07-30T00:38:06.249971Z",
-	"response": "The capital of the United States is **Washington, D.C.**",
-	"thinking": "The user is asking for the capital of the United States...",
-	"done": true,
-	"done_reason": "stop"
-}
-```
-
-#### Chat Completion
-
-```bash
 curl -X POST http://localhost:4000/ollama/api/chat \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama3.2",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ],
-    "stream": false
+    "messages": [{"role": "user", "content": "Hi there!"}]
   }'
-```
 
-#### Chat Completion with Thinking
-
-```bash
-curl -X POST http://localhost:4000/ollama/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "qwen3:14b",
-    "messages": [
-      {"role": "user", "content": "Explain quantum computing"}
-    ],
-    "think": true,
-    "stream": false
-  }'
-```
-
-Response with thinking:
-
-```json
-{
-	"model": "qwen3:14b",
-	"created_at": "2025-07-30T00:38:06.249971Z",
-	"message": {
-		"role": "assistant",
-		"content": "Quantum computing is a revolutionary approach...",
-		"thinking": "The user wants me to explain quantum computing..."
-	},
-	"done": true
-}
-```
-
-#### List Models
-
-```bash
 curl http://localhost:4000/ollama/api/tags
 ```
 
-## Architecture Deep Dive
+Your applications will now automatically benefit from:
+- **Distributed processing** across multiple workers
+- **Intelligent load balancing** 
+- **Automatic failover** if workers go down
+- **Better resource utilization** across your infrastructure
 
-### Job Flow
+No code changes required - just update the endpoint URL in your configuration.
 
-1. **Request Reception**: Client submits inference request to server
-2. **Validation**: Server validates request and checks model availability
-3. **Worker Selection**: Intelligent worker selection based on:
-    - Model availability
-    - Current load
-4. **Job Assignment**: Request is queued and assigned to optimal worker
-5. **Processing**: Worker processes inference via local Ollama
-6. **Response**: Result is returned through the server to client
+## Architecture Overview
 
-### Worker Registration
+GridLLM consists of three main components working together:
 
-1. **Capability Detection**: Worker scans local Ollama for available models
-2. **Resource Assessment**: System resources are evaluated for performance tiering
-3. **Server Registration**: Worker registers capabilities with central server
-4. **Heartbeat**: Continuous health monitoring and status updates
+### 1. **Central Server** (`/server`)
+
+The orchestration hub that manages the entire distributed system:
+
+- **Intelligent Job Scheduler**: Advanced queue management with priority-based routing
+- **Worker Registry**: Real-time tracking of worker capabilities, status, and performance metrics
+- **Load Balancer**: Smart request distribution based on model availability and current load
+- **API Gateway**: Complete Ollama API compatibility plus native endpoints
+- **Health Monitor**: Continuous health checks with automatic failover and orphaned job recovery
+- **Redis Integration**: Robust job queuing with BullMQ and persistent state management
+
+### 2. **Worker Clients** (`/client`)
+
+Distributed processing nodes that handle actual inference:
+
+- **Ollama Integration**: Seamless connection to local Ollama instances
+- **Auto-Discovery**: Automatic detection of available models and system resources
+- **Performance Tiering**: Self-classification into high/medium/low performance categories
+- **Resource Monitoring**: Real-time CPU, memory, and GPU usage tracking
+- **Fault Recovery**: Automatic reconnection and job redistribution on failures
+- **Concurrent Processing**: Configurable parallel job execution
+
+### 3. **Redis Message Bus**
+
+Central communication and persistence layer:
+
+- **Job Queuing**: Persistent job queues with priority support
+- **Real-time Messaging**: Worker coordination and status updates
+- **State Management**: Active job tracking and recovery
+- **Health Checking**: Distributed heartbeat monitoring
+
+## Key Features
+
+### **Production-Ready Distributed Architecture**
+
+- **Horizontal Scaling**: Add workers dynamically to increase capacity
+- **Fault Tolerance**: Automatic failover and orphaned job recovery
+- **Load Balancing**: Intelligent request distribution with performance-aware routing
+- **Real-time Monitoring**: Live tracking of worker status, job queues, and system health
+- **Zero-Downtime Deployment**: Rolling updates and graceful shutdowns
+
+### **Complete Ollama API Compatibility**
+
+- **Drop-in Replacement**: 100% compatible with existing Ollama clients and tools
+- **Full Endpoint Coverage**: All Ollama endpoints supported (`/ollama/*`)
+- **Streaming Support**: Real-time token streaming for interactive applications
+- **Model Management**: Distributed model availability across workers
+- **Advanced Features**: Support for `think` parameter, embeddings, and custom options
+- **Backward Compatibility**: Works with all existing Ollama integrations
+
+### **Advanced Job Scheduling & Management**
+
+- **Priority Queues**: High/medium/low priority job processing with configurable weights
+- **Timeout Management**: Configurable timeouts with automatic cleanup and retry logic
+- **Orphan Recovery**: Automatic detection and requeuing of jobs from failed workers
+- **Smart Worker Selection**: Optimal assignment based on:
+  - Model availability and compatibility
+  - Current worker load and capacity
+  - Performance tier and historical metrics
+  - Resource utilization (CPU, memory, GPU)
+
+### **Enterprise-Grade Features**
+
+- **Redis Integration**: High-performance job queuing with BullMQ and clustering support
+- **Security**: JWT authentication, API key support, and configurable CORS
+- **Rate Limiting**: Configurable request throttling and DDoS protection
+- **Comprehensive Logging**: Structured logging with Winston, multiple output formats
+- **Health Endpoints**: Detailed system status monitoring and metrics
+- **Docker Ready**: Full containerization with multi-stage builds and health checks
+
+## API Reference
+
+### Ollama Compatibility Endpoints
+
+GridLLM provides complete compatibility with the Ollama API:
+
+```bash
+# Generate completion
+curl -X POST http://localhost:3000/ollama/api/generate 
+  -H "Content-Type: application/json" 
+  -d '{
+    "model": "llama3.2",
+    "prompt": "Why is the sky blue?",
+    "stream": false
+  }'
+
+# Chat completion
+curl -X POST http://localhost:3000/ollama/api/chat 
+  -H "Content-Type: application/json" 
+  -d '{
+    "model": "llama3.2",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the capital of France?"
+      }
+    ]
+  }'
+
+# List available models
+curl http://localhost:3000/ollama/api/tags
+
+# Pull a model (distributed across workers)
+curl -X POST http://localhost:3000/ollama/api/pull 
+  -H "Content-Type: application/json" 
+  -d '{"name": "llama3.2"}'
+```
+
+### Native GridLLM Endpoints
+
+#### Health & Status
+
+```bash
+# System health check
+GET /health
+
+# Detailed system status
+GET /api/status
+
+# Worker information
+GET /api/workers
+
+# Job queue status
+GET /api/queue/status
+```
+
+#### Worker Management
+
+```bash
+# Register worker
+POST /api/workers/register
+{
+  "workerId": "worker-001",
+  "ollamaHost": "http://localhost:11434",
+  "capabilities": ["llama3.2", "codellama"],
+  "performanceTier": "high"
+}
+
+# Worker heartbeat
+POST /api/workers/:workerId/heartbeat
+{
+  "status": "active",
+  "currentJobs": 2,
+  "availableModels": ["llama3.2", "codellama"]
+}
+```
+
+## Development
+
+### Project Structure
+
+```
+GridLLM/
+├── server/                 # Central orchestration server
+│   ├── src/
+│   │   ├── routes/        # API endpoints
+│   │   ├── services/      # Core business logic
+│   │   ├── middleware/    # Express middleware
+│   │   └── utils/         # Utilities and helpers
+│   ├── Dockerfile
+│   └── package.json
+├── client/                # Distributed worker clients
+│   ├── src/
+│   │   ├── routes/        # Client API endpoints
+│   │   ├── services/      # Worker services
+│   │   ├── middleware/    # Client middleware
+│   │   └── utils/         # Client utilities
+│   ├── Dockerfile
+│   └── package.json
+├── tests/                # Test suites
+│   ├── server/           # Server tests
+│   └── client/           # Client tests
+├── docs/                 # Documentation
+├── docker-compose.yml    # Docker deployment
+└── package.json          # Root package management
+```
+
+### Development Setup
+
+1. **Prerequisites**
+   ```bash
+   # Install Node.js 18+
+   node --version  # Should be 18+
+   
+   # Install Docker
+   docker --version
+   
+   # Install Ollama
+   curl -fsSL https://ollama.ai/install.sh | sh
+   ```
+
+2. **Environment Setup**
+   ```bash
+   # Clone and install
+   git clone <repository-url>
+   cd GridLLM
+   npm install
+   
+   # Install all dependencies
+   npm run install:all
+   
+   # Set up environment files
+   cp server/.env.example server/.env
+   cp client/.env.example client/.env
+   ```
+
+3. **Development Commands**
+   ```bash
+   # Start development servers
+   npm run dev:server    # Start server in development mode
+   npm run dev:client    # Start client in development mode
+   npm run dev:all       # Start both server and client
+   
+   # Building
+   npm run build:server  # Build server
+   npm run build:client  # Build client
+   npm run build:all     # Build everything
+   
+   # Testing
+   npm run test:server   # Run server tests
+   npm run test:client   # Run client tests
+   npm run test:all      # Run all tests
+   
+   # Docker operations
+   npm run docker:build  # Build Docker images
+   npm run docker:up     # Start with Docker Compose
+   npm run docker:down   # Stop Docker services
+   ```
+
+### Testing
+
+GridLLM includes comprehensive test suites for both server and client components:
+
+```bash
+# Run all tests
+npm run test
+
+# Run specific test suites
+npm run test:server
+npm run test:client
+
+# Run with coverage
+npm run test:coverage
+
+# Watch mode for development
+npm run test:watch
+```
+
+## Deployment
+
+### Production Deployment with Docker
+
+1. **Prepare Environment**
+   ```bash
+   # Clone to production server
+   git clone <repository-url>
+   cd GridLLM
+   
+   # Configure production environment
+   cp docker-compose.prod.yml docker-compose.yml
+   ```
+
+2. **Deploy Services**
+   ```bash
+   # Start complete system
+   docker-compose up -d
+   
+   # Check service status
+   docker-compose ps
+   
+   # View logs
+   docker-compose logs -f
+   ```
+
+## Monitoring and Observability
+
+### Logging
+
+Structured logging with multiple output formats:
+
+```javascript
+// Log configuration
+{
+  "level": "info",
+  "format": "json",
+  "transports": [
+    {
+      "type": "file",
+      "filename": "logs/gridllm.log",
+      "maxSize": "20m",
+      "maxFiles": 5
+    },
+    {
+      "type": "console",
+      "format": "simple"
+    }
+  ]
+}
+```
+
+### Metrics and Analytics
+
+Key metrics tracked by GridLLM:
+
+- **Job Metrics**: Queue lengths, processing times
+- **Worker Metrics**: Active workers, model availability, performance tiers
+- **System Metrics**: Redis connectivity, response times
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Worker Connection Issues**
+   ```bash
+   # Check worker connectivity
+   curl http://localhost:3000/health
+   
+   # Verify Ollama connection
+   curl http://localhost:11434/api/tags
+   
+   # Check server registration
+   curl http://localhost:4000/api/workers
+   ```
+
+2. **Redis Connection Problems**
+   ```bash
+   # Test Redis connectivity
+   redis-cli ping
+   
+   # Check Redis logs
+   docker logs redis
+   
+   # Verify Redis configuration
+   redis-cli info
+   ```
+
+3. **Job Processing Issues**
+   ```bash
+   # Check job queues
+   curl http://localhost:4000/api/queue/status
+   
+   # View active jobs
+   curl http://localhost:4000/api/jobs/active
+   
+   # Monitor job logs
+   tail -f server/logs/gridllm-server.log | grep "job"
+   ```
+
+### Debug Mode
+
+Enable detailed debugging:
+
+```bash
+# Server debug mode
+export DEBUG=gridllm:server:*
+export LOG_LEVEL=debug
+npm run dev:server
+
+# Client debug mode
+export DEBUG=gridllm:client:*
+export LOG_LEVEL=debug
+npm run dev:client
+```
+
+### Performance Tuning
+
+Optimize GridLLM for your workload:
+
+1. **Worker Scaling**
+   - Use 1 worker per computer
+   - Monitor queue lengths and adjust worker count
+   - Use performance tiers to optimize job distribution
+
+2. **Redis Optimization**
+   - Configure Redis persistence for job durability
+   - Adjust memory limits based on job volume
+   - Use Redis clustering for high availability
+
+3. **Timeout Configuration**
+   - Set job timeouts based on model complexity
+   - Configure worker heartbeat intervals
+   - Adjust cleanup intervals for optimal performance
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

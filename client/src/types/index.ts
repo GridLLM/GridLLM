@@ -1,8 +1,12 @@
 export interface InferenceRequest {
 	id: string;
 	model: string;
-	prompt: string;
+	prompt?: string; // Optional for embedding requests
 	stream?: boolean;
+	// Embedding-specific fields
+	input?: string | string[]; // For embedding requests
+	truncate?: boolean; // For embedding requests
+	// Common fields
 	options?: {
 		temperature?: number;
 		top_k?: number;
@@ -10,20 +14,28 @@ export interface InferenceRequest {
 		num_predict?: number;
 		stop?: string[];
 		seed?: number;
+		[key: string]: any;
 	};
 	priority: "high" | "medium" | "low";
 	timeout?: number;
-	metadata?: Record<string, any>;
+	metadata?: {
+		requestType?: "inference" | "embedding"; // To distinguish request types
+		[key: string]: any;
+	};
 }
 
 export interface InferenceResponse {
 	id: string;
 	model?: string;
 	created_at?: string;
-	response: string;
+	response?: string; // Optional for embedding responses
 	thinking?: string;
-	done: boolean;
+	done?: boolean;
 	context?: number[];
+	// Embedding-specific fields
+	embeddings?: number[][]; // For embedding responses
+	embedding?: number[]; // Legacy field for single embedding
+	// Common timing fields
 	total_duration?: number;
 	load_duration?: number;
 	prompt_eval_count?: number;

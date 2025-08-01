@@ -445,19 +445,6 @@ export class BrokerClientService extends EventEmitter {
 			const systemResources =
 				await this.ollamaService.getSystemResources();
 
-			// Check if resources are within acceptable limits
-			// if (this.shouldPauseWorker(systemResources)) {
-			//   logger.warn('Resource usage high, pausing worker', {
-			//     cpuUsage: systemResources.cpuUsagePercent,
-			//     memoryUsage: systemResources.memoryUsagePercent,
-			//   });
-
-			//   if (this.workQueueService) {
-			//     await this.workQueueService.pause();
-			//   }
-			//   return;
-			// }
-
 			// Resume worker if it was paused
 			if (this.workQueueService) {
 				await this.workQueueService.resume();
@@ -483,18 +470,6 @@ export class BrokerClientService extends EventEmitter {
 		}
 	}
 
-	private shouldPauseWorker(resources: SystemResources): boolean {
-		return (
-			resources.cpuUsagePercent > config.performance.maxCpuUsage ||
-			resources.memoryUsagePercent > config.performance.maxMemoryUsage ||
-			resources.availableMemoryMB <
-				config.performance.minAvailableMemoryMB ||
-			(resources.gpuUsagePercent !== undefined &&
-				resources.gpuUsagePercent >
-					config.performance.maxGpuMemoryUsage)
-		);
-	}
-
 	private async processInferenceJob(
 		job: Job<InferenceRequest>
 	): Promise<InferenceResponse> {
@@ -514,11 +489,29 @@ export class BrokerClientService extends EventEmitter {
 
 			await job.updateProgress(25);
 
-			// Process inference
+			// Check if this is an embedding request
+			const isEmbeddingRequest =
+				request.metadata?.requestType === "embedding";
+
+			logger.info("Processing job assignment", {
+				jobId: job.id,
+				requestType: request.metadata?.requestType,
+				isEmbeddingRequest,
+				hasInput: !!request.input,
+				hasPrompt: !!request.prompt,
+				metadata: request.metadata,
+			});
+
+			// Process request based on type
 			let result: InferenceResponse | undefined;
 
-			if (request.stream) {
-				// For streaming, publish each chunk as it arrives
+			if (isEmbeddingRequest) {
+				logger.info("Handling as embedding request");
+				// Handle embedding request
+				result = await this.ollamaService.generateEmbedding(request);
+			} else if (request.stream) {
+				logger.info("Handling as streaming inference request");
+				// For streaming inference, publish each chunk as it arrives
 				let fullResponse = "";
 				for await (const chunk of this.ollamaService.generateStreamResponse(
 					request
@@ -551,6 +544,7 @@ export class BrokerClientService extends EventEmitter {
 					}
 				}
 			} else {
+				// Non-streaming inference
 				result = await this.ollamaService.generateResponse(request);
 			}
 

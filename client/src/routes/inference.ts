@@ -85,12 +85,13 @@ export const inferenceRoutes = (brokerClient: BrokerClientService): Router => {
 					id: inferenceRequest.id,
 					model: inferenceRequest.model,
 					priority: inferenceRequest.priority,
-					promptLength: inferenceRequest.prompt.length,
+					promptLength: inferenceRequest.prompt?.length || 0,
 				});
 
 				// Submit job and wait for completion
-				const result =
-					await brokerClient.submitAndWait(inferenceRequest);
+				const result = await brokerClient.submitAndWait(
+					inferenceRequest
+				);
 
 				// Return the actual response from Ollama
 				res.status(200).json({
