@@ -3,9 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 import Joi from "joi";
 import { JobScheduler } from "@/services/JobScheduler";
 import { WorkerRegistry } from "@/services/WorkerRegistry";
+import { InferenceRequest, OllamaModel } from "@/types";
 import { logger } from "@/utils/logger";
 import { asyncHandler, createError } from "@/middleware/errorHandler";
-import { InferenceRequest, OllamaModel } from "@/types";
 
 export const ollamaRoutes = (
 	jobScheduler: JobScheduler,
@@ -285,7 +285,7 @@ export const ollamaRoutes = (
 				"Ollama generate request submitted",
 				{
 					model: inferenceRequest.model,
-					promptLength: inferenceRequest.prompt.length,
+					promptLength: inferenceRequest.prompt?.length || 0,
 					stream: validatedData.stream,
 				}
 			);
@@ -925,22 +925,60 @@ export const ollamaRoutes = (
 				? validatedData.input
 				: [validatedData.input];
 
-			// Generate placeholder embeddings (in real implementation, send to worker)
-			const embeddings = inputs.map(
-				() => Array.from({ length: 384 }, () => Math.random() * 2 - 1) // Random embeddings
-			);
-
-			res.json({
+			const embeddingRequest: InferenceRequest = {
+				id: uuidv4(),
 				model: validatedData.model,
-				embeddings,
-				total_duration: 1000000,
-				load_duration: 100000,
-				prompt_eval_count: inputs.reduce(
-					(sum: number, input: string) =>
-						sum + input.split(" ").length,
-					0
-				),
+				input: inputs,
+				options: validatedData.options || {},
+				priority: "medium",
+				timeout: 300000,
+				metadata: {
+					requestType: "embedding",
+					ollamaEndpoint: "/api/embed",
+					truncate: validatedData.truncate,
+					keep_alive: validatedData.keep_alive,
+					submittedAt: new Date().toISOString(),
+					clientIp: req.ip,
+					userAgent: req.get("User-Agent"),
+				},
+			};
+
+			logger.job(embeddingRequest.id, "Ollama embed request submitted", {
+				model: embeddingRequest.model,
+				inputCount: inputs.length,
+				inputLengths: inputs.map((input: string) => input.length),
 			});
+
+			try {
+				const result = await jobScheduler.submitAndWait(
+					embeddingRequest
+				);
+
+				// Convert GridLLM response to Ollama embed format
+				const embedResponse = {
+					model: validatedData.model,
+					embeddings: result.embeddings || [],
+					total_duration: result.total_duration || 0,
+					load_duration: result.load_duration || 0,
+					prompt_eval_count:
+						result.prompt_eval_count ||
+						inputs.reduce(
+							(sum: number, input: string) =>
+								sum + input.split(" ").length,
+							0
+						),
+				};
+
+				res.json(embedResponse);
+			} catch (error) {
+				logger.job(embeddingRequest.id, "Ollama embed request failed", {
+					error:
+						error instanceof Error
+							? error.message
+							: "Unknown error",
+				});
+				throw error;
+			}
 		})
 	);
 
@@ -994,15 +1032,60 @@ export const ollamaRoutes = (
 
 			validateModelExists(validatedData.model);
 
-			// Generate placeholder embedding
-			const embedding = Array.from(
-				{ length: 384 },
-				() => Math.random() * 2 - 1
+			const embeddingRequest: InferenceRequest = {
+				id: uuidv4(),
+				model: validatedData.model,
+				input: [validatedData.prompt], // Convert to array format
+				options: validatedData.options || {},
+				priority: "medium",
+				timeout: 300000,
+				metadata: {
+					requestType: "embedding",
+					ollamaEndpoint: "/api/embeddings",
+					keep_alive: validatedData.keep_alive,
+					submittedAt: new Date().toISOString(),
+					clientIp: req.ip,
+					userAgent: req.get("User-Agent"),
+				},
+			};
+
+			logger.job(
+				embeddingRequest.id,
+				"Ollama embeddings (legacy) request submitted",
+				{
+					model: embeddingRequest.model,
+					promptLength: validatedData.prompt.length,
+				}
 			);
 
-			res.json({
-				embedding,
-			});
+			try {
+				const result = await jobScheduler.submitAndWait(
+					embeddingRequest
+				);
+
+				// Convert GridLLM response to legacy Ollama embeddings format
+				// The legacy endpoint returns a single embedding, not an array
+				const embedding =
+					result.embeddings && result.embeddings.length > 0
+						? result.embeddings[0]
+						: [];
+
+				res.json({
+					embedding,
+				});
+			} catch (error) {
+				logger.job(
+					embeddingRequest.id,
+					"Ollama embeddings (legacy) request failed",
+					{
+						error:
+							error instanceof Error
+								? error.message
+								: "Unknown error",
+					}
+				);
+				throw error;
+			}
 		})
 	);
 

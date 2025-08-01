@@ -64,8 +64,12 @@ export interface WorkerStatus {
 export interface InferenceRequest {
 	id: string;
 	model: string;
-	prompt: string;
+	prompt?: string; // Optional for embedding requests
 	stream?: boolean;
+	// Embedding-specific fields
+	input?: string | string[]; // For embedding requests
+	truncate?: boolean; // For embedding requests
+	// Common fields
 	options?: {
 		temperature?: number;
 		top_k?: number;
@@ -83,6 +87,29 @@ export interface InferenceRequest {
 		originalWorkerId?: string;
 		orphanedAt?: string;
 		requeueCount?: number;
+		requestType?: "inference" | "embedding"; // To distinguish request types
+		ollamaEndpoint?: string;
+		[key: string]: any;
+	};
+}
+
+export interface EmbeddingRequest {
+	id: string;
+	model: string;
+	input: string | string[];
+	truncate?: boolean;
+	options?: {
+		[key: string]: any;
+	};
+	priority?: "high" | "medium" | "low";
+	timeout?: number;
+	metadata?: {
+		retryCount?: number;
+		orphaned?: boolean;
+		originalWorkerId?: string;
+		orphanedAt?: string;
+		requeueCount?: number;
+		ollamaEndpoint?: string;
 		[key: string]: any;
 	};
 }
@@ -91,17 +118,30 @@ export interface InferenceResponse {
 	id: string;
 	model?: string;
 	created_at?: string;
-	response: string;
+	response?: string; // Optional for embedding responses
 	thinking?: string;
-	done: boolean;
+	done?: boolean;
 	done_reason?: string;
 	context?: number[];
+	// Embedding-specific fields
+	embeddings?: number[][]; // For embedding responses
+	embedding?: number[]; // Legacy field for single embedding
+	// Common timing fields
 	total_duration?: number;
 	load_duration?: number;
 	prompt_eval_count?: number;
 	prompt_eval_duration?: number;
 	eval_count?: number;
 	eval_duration?: number;
+}
+
+export interface EmbeddingResponse {
+	id: string;
+	model?: string;
+	embeddings: number[][];
+	total_duration?: number;
+	load_duration?: number;
+	prompt_eval_count?: number;
 }
 
 export interface JobAssignment {

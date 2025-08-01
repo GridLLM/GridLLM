@@ -604,10 +604,28 @@ export class WorkerClientService extends EventEmitter {
 				throw new Error(`Model ${request.model} is not available`);
 			}
 
-			// Process inference
+			// Check if this is an embedding request
+			const isEmbeddingRequest =
+				request.metadata?.requestType === "embedding";
+
+			logger.debug("Request type detected", {
+				jobId: request.id,
+				requestType: request.metadata?.requestType,
+				isEmbeddingRequest,
+				hasInput: !!request.input,
+				hasPrompt: !!request.prompt,
+				metadata: request.metadata,
+			});
+
+			// Process request based on type
 			let result: InferenceResponse | undefined;
 
-			if (request.stream) {
+			if (isEmbeddingRequest) {
+				logger.info("Handling as embedding request");
+				// Handle embedding request
+				result = await this.ollamaService.generateEmbedding(request);
+			} else if (request.stream) {
+				logger.info("Handling as streaming inference request");
 				// For streaming, publish each chunk as it arrives
 				let fullResponse = "";
 				for await (const chunk of this.ollamaService.generateStreamResponse(
@@ -651,6 +669,8 @@ export class WorkerClientService extends EventEmitter {
 					}
 				}
 			} else {
+				logger.info("Handling as non-streaming inference request");
+				// Non-streaming inference
 				result = await this.ollamaService.generateResponse(request);
 			}
 

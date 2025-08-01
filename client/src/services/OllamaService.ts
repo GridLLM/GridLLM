@@ -141,7 +141,7 @@ export class OllamaService {
 			logger.info("Starting inference", {
 				id: request.id,
 				model: request.model,
-				promptLength: request.prompt.length,
+				promptLength: request.prompt?.length || 0,
 				think: payload.think,
 			});
 
@@ -153,13 +153,12 @@ export class OllamaService {
 				id: request.id,
 			};
 
-			logger.info("Inference completed", {
-				id: request.id,
-				responseLength: result.response.length,
+			logger.info("Ollama generate request completed", {
+				model: request.model,
+				promptLength: request.prompt?.length || 0,
+				responseLength: result.response?.length || 0,
 				duration: result.total_duration,
-				hasThinking: !!result.thinking,
 			});
-
 			return result;
 		} catch (error) {
 			logger.error("Inference failed", {
@@ -220,7 +219,7 @@ export class OllamaService {
 			logger.info("Starting streaming inference", {
 				id: request.id,
 				model: request.model,
-				promptLength: request.prompt.length,
+				promptLength: request.prompt?.length || 0,
 				think: payload.think,
 			});
 
@@ -409,6 +408,72 @@ export class OllamaService {
 				error,
 			});
 			return false;
+		}
+	}
+
+	async generateEmbedding(
+		request: InferenceRequest
+	): Promise<InferenceResponse> {
+		try {
+			logger.info("Starting embedding generation", {
+				id: request.id,
+				model: request.model,
+				inputType: Array.isArray(request.input) ? "array" : "string",
+				inputLength: Array.isArray(request.input)
+					? request.input.length
+					: request.input?.length || 0,
+			});
+
+			// Ensure we have input for embedding
+			if (!request.input) {
+				throw new Error("Input is required for embedding requests");
+			}
+
+			const payload: any = {
+				model: request.model,
+				input: request.input,
+				options: request.options || {},
+			};
+
+			// Add optional parameters
+			if (request.metadata?.truncate !== undefined) {
+				payload.truncate = request.metadata.truncate;
+			}
+			if (request.metadata?.keep_alive !== undefined) {
+				payload.keep_alive = request.metadata.keep_alive;
+			}
+
+			const response: AxiosResponse = await this.client.post(
+				"/api/embed",
+				payload
+			);
+
+			// Convert Ollama embedding response to InferenceResponse format
+			const embeddingData = response.data;
+			const result: InferenceResponse = {
+				id: request.id,
+				model: embeddingData.model,
+				embeddings: embeddingData.embeddings,
+				total_duration: embeddingData.total_duration,
+				load_duration: embeddingData.load_duration,
+				prompt_eval_count: embeddingData.prompt_eval_count,
+			};
+
+			return result;
+		} catch (error) {
+			logger.error("Embedding generation failed", {
+				model: request.model,
+				inputType: Array.isArray(request.input) ? "array" : "string",
+				inputLength: Array.isArray(request.input)
+					? request.input.length
+					: request.input?.length || 0,
+				error: error instanceof Error ? error.message : "Unknown error",
+			});
+			throw new Error(
+				`Embedding failed: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
 		}
 	}
 }

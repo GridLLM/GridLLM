@@ -85,14 +85,15 @@ export const inferenceRoutes = (
 			logger.job(inferenceRequest.id, "Inference request submitted", {
 				model: inferenceRequest.model,
 				priority: inferenceRequest.priority,
-				promptLength: inferenceRequest.prompt.length,
+				promptLength: inferenceRequest.prompt?.length || 0,
 				availableWorkers: availableWorkers.length,
 			});
 
 			try {
 				// Submit job and wait for completion
-				const result =
-					await jobScheduler.submitAndWait(inferenceRequest);
+				const result = await jobScheduler.submitAndWait(
+					inferenceRequest
+				);
 
 				// Return the actual response from worker
 				res.status(200).json({

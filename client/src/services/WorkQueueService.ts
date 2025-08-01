@@ -85,7 +85,7 @@ export class WorkQueueService {
 				workerId: this.workerId,
 				result: {
 					id: result.id,
-					responseLength: result.response.length,
+					responseLength: result.response?.length || 0,
 					duration: result.total_duration,
 				},
 			});
