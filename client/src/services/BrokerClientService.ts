@@ -8,7 +8,6 @@ import {
 	NodeCapabilities,
 	WorkerStatus,
 	BrokerConnection,
-	SystemResources,
 	InferenceRequest,
 	InferenceResponse,
 } from "@/types";
@@ -137,14 +136,10 @@ export class BrokerClientService extends EventEmitter {
 			logger.info("Gathering node capabilities");
 
 			const models = await this.ollamaService.getAvailableModels();
-			const systemResources =
-				await this.ollamaService.getSystemResources();
 
 			const capabilities: NodeCapabilities = {
 				workerId: config.worker.id,
 				availableModels: models,
-				systemResources,
-				performanceTier: this.determinePerformanceTier(systemResources),
 				maxConcurrentTasks: config.worker.maxConcurrentJobs,
 				supportedFormats: ["json", "text"],
 				lastUpdated: new Date(),
@@ -153,7 +148,6 @@ export class BrokerClientService extends EventEmitter {
 			logger.info("Node capabilities gathered", {
 				workerId: capabilities.workerId,
 				modelCount: capabilities.availableModels.length,
-				performanceTier: capabilities.performanceTier,
 				maxConcurrentTasks: capabilities.maxConcurrentTasks,
 			});
 
@@ -162,31 +156,6 @@ export class BrokerClientService extends EventEmitter {
 			logger.error("Failed to gather node capabilities", error);
 			throw error;
 		}
-	}
-
-	private determinePerformanceTier(
-		resources: SystemResources
-	): "high" | "medium" | "low" {
-		// Determine performance tier based on system resources
-		const cpuScore =
-			resources.cpuCores >= 8 ? 3 : resources.cpuCores >= 4 ? 2 : 1;
-		const memoryScore =
-			resources.totalMemoryMB >= 16384
-				? 3
-				: resources.totalMemoryMB >= 8192
-				? 2
-				: 1;
-		const gpuScore = resources.gpuMemoryMB
-			? resources.gpuMemoryMB >= 16384
-				? 3
-				: 2
-			: 0;
-
-		const totalScore = cpuScore + memoryScore + gpuScore;
-
-		if (totalScore >= 7) return "high";
-		if (totalScore >= 4) return "medium";
-		return "low";
 	}
 
 	private async connectToBroker(): Promise<void> {
@@ -442,16 +411,12 @@ export class BrokerClientService extends EventEmitter {
 		if (!this.capabilities) return;
 
 		try {
-			const systemResources =
-				await this.ollamaService.getSystemResources();
-
 			// Resume worker if it was paused
 			if (this.workQueueService) {
 				await this.workQueueService.resume();
 			}
 
 			// Update capabilities
-			this.capabilities.systemResources = systemResources;
 			this.capabilities.lastUpdated = new Date();
 
 			// Update broker with new capabilities

@@ -89,9 +89,8 @@ export const inferenceRoutes = (brokerClient: BrokerClientService): Router => {
 				});
 
 				// Submit job and wait for completion
-				const result = await brokerClient.submitAndWait(
-					inferenceRequest
-				);
+				const result =
+					await brokerClient.submitAndWait(inferenceRequest);
 
 				// Return the actual response from Ollama
 				res.status(200).json({
@@ -123,65 +122,6 @@ export const inferenceRoutes = (brokerClient: BrokerClientService): Router => {
 						timestamp: new Date().toISOString(),
 					});
 				}
-			}
-		})
-	);
-
-	// Get inference status (if we had job tracking)
-	router.get(
-		"/:id/status",
-		asyncHandler(async (req: Request, res: Response) => {
-			try {
-				const { id } = req.params;
-
-				// In a real implementation, you'd look up the job status
-				// For now, return a placeholder response
-				logger.info("Inference status requested", { id });
-
-				res.json({
-					id,
-					status: "processing",
-					message: "Job status tracking not implemented yet",
-					timestamp: new Date().toISOString(),
-				});
-			} catch (error) {
-				logger.error("Failed to get inference status", error);
-				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
-					timestamp: new Date().toISOString(),
-				});
-			}
-		})
-	);
-
-	// Cancel inference request
-	router.delete(
-		"/:id",
-		asyncHandler(async (req: Request, res: Response) => {
-			try {
-				const { id } = req.params;
-
-				// In a real implementation, you'd cancel the job
-				logger.info("Inference cancellation requested", { id });
-
-				res.json({
-					id,
-					status: "cancellation_requested",
-					message: "Job cancellation not implemented yet",
-					timestamp: new Date().toISOString(),
-				});
-			} catch (error) {
-				logger.error("Failed to cancel inference request", error);
-				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
-					timestamp: new Date().toISOString(),
-				});
 			}
 		})
 	);

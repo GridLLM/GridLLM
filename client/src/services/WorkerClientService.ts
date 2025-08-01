@@ -6,7 +6,6 @@ import { OllamaService } from "./OllamaService";
 import {
 	NodeCapabilities,
 	WorkerStatus,
-	SystemResources,
 	InferenceRequest,
 	InferenceResponse,
 } from "@/types";
@@ -134,14 +133,10 @@ export class WorkerClientService extends EventEmitter {
 			logger.info("Gathering node capabilities");
 
 			const models = await this.ollamaService.getAvailableModels();
-			const systemResources =
-				await this.ollamaService.getSystemResources();
 
 			const capabilities: NodeCapabilities = {
 				workerId: config.worker.id,
 				availableModels: models,
-				systemResources,
-				performanceTier: this.determinePerformanceTier(systemResources),
 				maxConcurrentTasks: config.worker.maxConcurrentJobs,
 				supportedFormats: ["json", "text"],
 				lastUpdated: new Date(),
@@ -150,7 +145,6 @@ export class WorkerClientService extends EventEmitter {
 			logger.info("Node capabilities gathered", {
 				workerId: capabilities.workerId,
 				modelCount: capabilities.availableModels.length,
-				performanceTier: capabilities.performanceTier,
 				maxConcurrentTasks: capabilities.maxConcurrentTasks,
 			});
 
@@ -159,30 +153,6 @@ export class WorkerClientService extends EventEmitter {
 			logger.error("Failed to gather node capabilities", error);
 			throw error;
 		}
-	}
-
-	private determinePerformanceTier(
-		resources: SystemResources
-	): "high" | "medium" | "low" {
-		const cpuScore =
-			resources.cpuCores >= 8 ? 3 : resources.cpuCores >= 4 ? 2 : 1;
-		const memoryScore =
-			resources.totalMemoryMB >= 16384
-				? 3
-				: resources.totalMemoryMB >= 8192
-				? 2
-				: 1;
-		const gpuScore = resources.gpuMemoryMB
-			? resources.gpuMemoryMB >= 16384
-				? 3
-				: 2
-			: 0;
-
-		const totalScore = cpuScore + memoryScore + gpuScore;
-
-		if (totalScore >= 7) return "high";
-		if (totalScore >= 4) return "medium";
-		return "low";
 	}
 
 	private async connectToServer(): Promise<void> {
@@ -409,29 +379,20 @@ export class WorkerClientService extends EventEmitter {
 		if (!this.capabilities) return;
 
 		try {
-			const systemResources =
-				await this.ollamaService.getSystemResources();
-
 			// Update capabilities
-			this.capabilities.systemResources = systemResources;
 			this.capabilities.lastUpdated = new Date();
 
 			const currentStatus = this.isProcessingJob ? "busy" : "online";
 			const currentStatusData = {
 				status: currentStatus,
 				currentJobs: this.currentJobs,
-				systemResources,
 			};
 
 			// Check if status has actually changed
 			const hasStatusChanged =
 				!this.lastPublishedStatus ||
 				this.lastPublishedStatus.status !== currentStatus ||
-				this.lastPublishedStatus.currentJobs !== this.currentJobs ||
-				this.hasSystemResourcesChanged(
-					this.lastPublishedStatus.systemResources,
-					systemResources
-				);
+				this.lastPublishedStatus.currentJobs !== this.currentJobs;
 
 			if (!hasStatusChanged) {
 				// Only update capabilities in Redis without publishing status update
@@ -467,7 +428,6 @@ export class WorkerClientService extends EventEmitter {
 					workerId: config.worker.id,
 					status: currentStatus,
 					currentJobs: this.currentJobs,
-					systemResources,
 				})
 			);
 
@@ -484,40 +444,10 @@ export class WorkerClientService extends EventEmitter {
 		}
 	}
 
-	private hasSystemResourcesChanged(
-		oldResources: any,
-		newResources: any
-	): boolean {
-		if (!oldResources && !newResources) return false;
-		if (!oldResources || !newResources) return true;
-
-		// Check for significant changes in system resources
-		// Only consider meaningful differences (e.g., >5% change in memory/CPU)
-		const threshold = 0.05; // 5% threshold
-
-		if (oldResources.memory && newResources.memory) {
-			const memDiff =
-				Math.abs(oldResources.memory.used - newResources.memory.used) /
-				oldResources.memory.total;
-			if (memDiff > threshold) return true;
-		}
-
-		if (oldResources.cpu && newResources.cpu) {
-			const cpuDiff = Math.abs(
-				oldResources.cpu.usage - newResources.cpu.usage
-			);
-			if (cpuDiff > threshold * 100) return true; // CPU is in percentage
-		}
-
-		return false;
-	}
-
 	private async publishStatusUpdate(): Promise<void> {
 		if (!this.capabilities) return;
 
 		try {
-			const systemResources =
-				await this.ollamaService.getSystemResources();
 			const currentStatus = this.isProcessingJob ? "busy" : "online";
 
 			// Always publish when explicitly called (for job state changes)
@@ -527,7 +457,6 @@ export class WorkerClientService extends EventEmitter {
 					workerId: config.worker.id,
 					status: currentStatus,
 					currentJobs: this.currentJobs,
-					systemResources,
 				})
 			);
 
@@ -535,7 +464,6 @@ export class WorkerClientService extends EventEmitter {
 			this.lastPublishedStatus = {
 				status: currentStatus,
 				currentJobs: this.currentJobs,
-				systemResources,
 			};
 
 			logger.debug("Worker status published", {
@@ -560,9 +488,6 @@ export class WorkerClientService extends EventEmitter {
 			switch (data.type) {
 				case "job_assignment":
 					await this.processJobAssignment(data.job);
-					break;
-				case "job_cancellation":
-					await this.handleJobCancellation(data.jobId);
 					break;
 				default:
 					logger.warn("Unknown job message type", {
@@ -746,12 +671,6 @@ export class WorkerClientService extends EventEmitter {
 		}
 	}
 
-	private async handleJobCancellation(jobId: string): Promise<void> {
-		logger.info("Job cancellation requested", { jobId });
-		// In a real implementation, you'd cancel the running job
-		// For now, just log it
-	}
-
 	private async handleReregistrationRequest(message: string): Promise<void> {
 		try {
 			const data = JSON.parse(message);
@@ -776,8 +695,8 @@ export class WorkerClientService extends EventEmitter {
 			status: this.isProcessingJob
 				? "busy"
 				: this.isConnected
-				? "online"
-				: "offline",
+					? "online"
+					: "offline",
 			currentJobs: [], // For now, simplified to empty array
 			capabilities: this.capabilities || ({} as NodeCapabilities),
 			lastHeartbeat: new Date(),

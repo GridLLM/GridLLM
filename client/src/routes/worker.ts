@@ -90,56 +90,6 @@ export const workerRoutes = (brokerClient: BrokerClientService): Router => {
 		})
 	);
 
-	// Pause worker
-	router.post(
-		"/pause",
-		asyncHandler(async (req: Request, res: Response) => {
-			try {
-				// This would need to be implemented in the BrokerClientService
-				logger.info("Worker pause requested");
-
-				res.json({
-					message: "Worker pause requested",
-					timestamp: new Date().toISOString(),
-				});
-			} catch (error) {
-				logger.error("Failed to pause worker", error);
-				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
-					timestamp: new Date().toISOString(),
-				});
-			}
-		})
-	);
-
-	// Resume worker
-	router.post(
-		"/resume",
-		asyncHandler(async (req: Request, res: Response) => {
-			try {
-				// This would need to be implemented in the BrokerClientService
-				logger.info("Worker resume requested");
-
-				res.json({
-					message: "Worker resume requested",
-					timestamp: new Date().toISOString(),
-				});
-			} catch (error) {
-				logger.error("Failed to resume worker", error);
-				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
-					timestamp: new Date().toISOString(),
-				});
-			}
-		})
-	);
-
 	// Get worker metrics
 	router.get(
 		"/metrics",

@@ -5,7 +5,6 @@ import {
 	OllamaModel,
 	InferenceRequest,
 	InferenceResponse,
-	SystemResources,
 	StreamResponse,
 } from "@/types";
 
@@ -319,76 +318,6 @@ export class OllamaService {
 				}`
 			);
 		}
-	}
-
-	async getSystemResources(): Promise<SystemResources> {
-		try {
-			// This would need to be implemented based on system monitoring
-			// For now, return mock data - in production, integrate with system monitoring
-			const cpuInfo = await this.getCpuInfo();
-			const memoryInfo = await this.getMemoryInfo();
-			const gpuInfo = await this.getGpuInfo();
-
-			const resources: SystemResources = {
-				cpuCores: cpuInfo.cores,
-				totalMemoryMB: memoryInfo.total,
-				availableMemoryMB: memoryInfo.available,
-				cpuUsagePercent: cpuInfo.usage,
-				memoryUsagePercent: memoryInfo.usage,
-			};
-
-			if (gpuInfo) {
-				resources.gpuMemoryMB = gpuInfo.total;
-				resources.availableGpuMemoryMB = gpuInfo.available;
-				resources.gpuUsagePercent = gpuInfo.usage;
-			}
-
-			return resources;
-		} catch (error) {
-			logger.error("Failed to get system resources", error);
-			throw new Error("Failed to retrieve system resources");
-		}
-	}
-
-	private async getCpuInfo(): Promise<{ cores: number; usage: number }> {
-		// Mock implementation - replace with actual system monitoring
-		return {
-			cores: 8,
-			usage: Math.random() * 100,
-		};
-	}
-
-	private async getMemoryInfo(): Promise<{
-		total: number;
-		available: number;
-		usage: number;
-	}> {
-		// Mock implementation - replace with actual system monitoring
-		const total = 16384; // 16GB
-		const available = total * (0.3 + Math.random() * 0.4); // 30-70% available
-		return {
-			total,
-			available: Math.floor(available),
-			usage: Math.floor(((total - available) / total) * 100),
-		};
-	}
-
-	private async getGpuInfo(): Promise<
-		{ total: number; available: number; usage: number } | undefined
-	> {
-		// Mock implementation - replace with actual GPU monitoring
-		// Return undefined if no GPU available
-		if (Math.random() > 0.5) {
-			return undefined;
-		}
-
-		const total = 24576; // 24GB GPU
-		const available = total * (0.2 + Math.random() * 0.6); // 20-80% available
-		return {
-			total,
-			available: Math.floor(available),
-			usage: Math.floor(((total - available) / total) * 100),
-		};
 	}
 
 	getConnectionStatus(): { isConnected: boolean; lastHealthCheck: Date } {

@@ -67,22 +67,9 @@ export interface OllamaModel {
 export interface NodeCapabilities {
 	workerId: string;
 	availableModels: OllamaModel[];
-	systemResources: SystemResources;
-	performanceTier: "high" | "medium" | "low";
 	maxConcurrentTasks: number;
 	supportedFormats: string[];
 	lastUpdated: Date;
-}
-
-export interface SystemResources {
-	cpuCores: number;
-	totalMemoryMB: number;
-	availableMemoryMB: number;
-	gpuMemoryMB?: number;
-	availableGpuMemoryMB?: number;
-	cpuUsagePercent: number;
-	memoryUsagePercent: number;
-	gpuUsagePercent?: number;
 }
 
 export interface TaskJob {
