@@ -39,7 +39,7 @@ jobs:
         APP_NAME="${{ matrix.app }}"
         
         if [[ $GITHUB_REF == refs/heads/main ]]; then
-          echo "tags=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${APP_NAME}:latest,${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${APP_NAME}:latest" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${APP_NAME}:latest" >> $GITHUB_OUTPUT
           echo "build_type=production" >> $GITHUB_OUTPUT
         elif [[ $GITHUB_REF == refs/heads/staging ]]; then
           echo "tags=${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${APP_NAME}:nightly,${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${APP_NAME}:nightly" >> $GITHUB_OUTPUT
