@@ -483,4 +483,4 @@ Optimize GridLLM for your workload:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. GridLLM reserves the right to change license and distribution at any time and without notice.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
