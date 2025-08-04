@@ -1,5 +1,4 @@
 import { EventEmitter } from "events";
-import { v4 as uuidv4 } from "uuid";
 import { RedisService } from "./RedisService";
 import { WorkerRegistry } from "./WorkerRegistry";
 import {
@@ -186,19 +185,30 @@ export class JobScheduler extends EventEmitter {
 					);
 				}
 			} else {
-				logger.warn(
-					`No suitable worker found for job ${job.id} (model: ${job.model})`
+				// Check if there are workers with the required model that are just busy
+				const modelWorkers = this.workerRegistry.getWorkersByModel(job.model);
+				const availableWorkers = this.workerRegistry.getAvailableWorkers();
+				const busyModelWorkers = modelWorkers.filter(w => 
+					w.status === "online" && w.currentJobs >= config.jobs.maxConcurrentJobsPerWorker
 				);
 
-				// Log available workers for debugging
-				const availableWorkers =
-					this.workerRegistry.getAvailableWorkers();
-				const modelWorkers = this.workerRegistry.getWorkersByModel(
-					job.model
-				);
-				logger.warn(
-					`Available workers: ${availableWorkers.length}, Workers with model ${job.model}: ${modelWorkers.length}`
-				);
+				if (busyModelWorkers.length > 0) {
+					// Workers with the model exist but are busy - keep job in queue
+					logger.debug(
+						`Job ${job.id} waiting: ${busyModelWorkers.length} workers have model ${job.model} but are busy (${busyModelWorkers.map(w => `${w.workerId}:${w.currentJobs}`).join(', ')}) - keeping in queue`
+					);
+					// Don't process this job now, leave it in queue
+				} else {
+					// No workers with this model exist
+					logger.warn(
+						`No suitable worker found for job ${job.id} (model: ${job.model}) - no workers have this model`
+					);
+					
+					// Log available workers for debugging
+					logger.warn(
+						`Available workers: ${availableWorkers.length}, Workers with model ${job.model}: ${modelWorkers.length}`
+					);
+				}
 			}
 		}
 
