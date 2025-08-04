@@ -192,21 +192,18 @@ export class JobScheduler extends EventEmitter {
 					w.status === "online" && w.currentJobs >= config.jobs.maxConcurrentJobsPerWorker
 				);
 
+				// Debug: log all model workers and their status
+				logger.debug(`Model workers for ${job.model}: ${modelWorkers.map(w => `${w.workerId}(${w.status},jobs:${w.currentJobs},max:${config.jobs.maxConcurrentJobsPerWorker})`).join(', ')}`);
+
 				if (busyModelWorkers.length > 0) {
 					// Workers with the model exist but are busy - keep job in queue
 					logger.debug(
 						`Job ${job.id} waiting: ${busyModelWorkers.length} workers have model ${job.model} but are busy (${busyModelWorkers.map(w => `${w.workerId}:${w.currentJobs}`).join(', ')}) - keeping in queue`
 					);
-					// Don't process this job now, leave it in queue
 				} else {
-					// No workers with this model exist
+					// No workers with this model exist or workers are offline
 					logger.warn(
-						`No suitable worker found for job ${job.id} (model: ${job.model}) - no workers have this model`
-					);
-					
-					// Log available workers for debugging
-					logger.warn(
-						`Available workers: ${availableWorkers.length}, Workers with model ${job.model}: ${modelWorkers.length}`
+						`No suitable worker found for job ${job.id} (model: ${job.model}) - no workers have this model or all are offline`
 					);
 				}
 			}
