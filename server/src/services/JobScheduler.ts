@@ -186,20 +186,29 @@ export class JobScheduler extends EventEmitter {
 				}
 			} else {
 				// Check if there are workers with the required model that are just busy
-				const modelWorkers = this.workerRegistry.getWorkersByModel(job.model);
-				const availableWorkers = this.workerRegistry.getAvailableWorkers();
-				const busyModelWorkers = modelWorkers.filter(w => 
-					w.status === "online" && w.currentJobs >= config.jobs.maxConcurrentJobsPerWorker
+				const modelWorkers = this.workerRegistry.getWorkersByModel(
+					job.model
+				);
+				const busyModelWorkers = modelWorkers.filter(
+					(w) =>
+						w.status === "online" &&
+						w.currentJobs >= config.jobs.maxConcurrentJobsPerWorker
 				);
 
 				// Debug: log all model workers and their status
-				logger.debug(`Model workers for ${job.model}: ${modelWorkers.map(w => `${w.workerId}(${w.status},jobs:${w.currentJobs},max:${config.jobs.maxConcurrentJobsPerWorker})`).join(', ')}`);
+				if (logger.isDebugEnabled()) {
+					logger.debug(
+						`Model workers for ${job.model}: ${modelWorkers.map((w) => `${w.workerId}(${w.status},jobs:${w.currentJobs},max:${config.jobs.maxConcurrentJobsPerWorker})`).join(", ")}`
+					);
+				}
 
 				if (busyModelWorkers.length > 0) {
 					// Workers with the model exist but are busy - keep job in queue
-					logger.debug(
-						`Job ${job.id} waiting: ${busyModelWorkers.length} workers have model ${job.model} but are busy (${busyModelWorkers.map(w => `${w.workerId}:${w.currentJobs}`).join(', ')}) - keeping in queue`
-					);
+					if (logger.isDebugEnabled()) {
+						logger.debug(
+							`Job ${job.id} waiting: ${busyModelWorkers.length} workers have model ${job.model} but are busy (${busyModelWorkers.map((w) => `${w.workerId}:${w.currentJobs}`).join(", ")}) - keeping in queue`
+						);
+					}
 				} else {
 					// No workers with this model exist or workers are offline
 					logger.warn(
@@ -845,18 +854,24 @@ export class JobScheduler extends EventEmitter {
 						try {
 							this.redis.unsubscribe(streamChannel);
 						} catch (error) {
-							logger.error("Failed to unsubscribe from streamChannel in handleResult", {
-								streamChannel,
-								error,
-							});
+							logger.error(
+								"Failed to unsubscribe from streamChannel in handleResult",
+								{
+									streamChannel,
+									error,
+								}
+							);
 						}
 						try {
 							this.redis.unsubscribe(resultChannel);
 						} catch (error) {
-							logger.error("Failed to unsubscribe from resultChannel in handleResult", {
-								resultChannel,
-								error,
-							});
+							logger.error(
+								"Failed to unsubscribe from resultChannel in handleResult",
+								{
+									resultChannel,
+									error,
+								}
+							);
 						}
 
 						if (data.error) {

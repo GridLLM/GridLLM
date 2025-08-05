@@ -1,13 +1,15 @@
 name: Auto Format Code
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [synchronize, ready_for_review, reopened]
+    branches:
+      - staging
   workflow_dispatch:
 
 jobs:
   format:
-    if: github.event.review.state == 'approved' && (github.event.pull_request.base.ref == 'main' || github.event.pull_request.base.ref == 'staging')
+    if: github.base_ref == 'main' || github.base_ref == 'staging'
     runs-on: ubuntu-latest
 
     steps:
