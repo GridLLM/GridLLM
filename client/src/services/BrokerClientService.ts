@@ -65,9 +65,7 @@ export class BrokerClientService extends EventEmitter {
 	async start(): Promise<void> {
 		try {
 			if (!this.workQueueService || !this.capabilities) {
-				throw new Error(
-					"Service not initialized. Call initialize() first."
-				);
+				throw new Error("Service not initialized. Call initialize() first.");
 			}
 
 			logger.info("Starting broker client service");
@@ -319,8 +317,7 @@ export class BrokerClientService extends EventEmitter {
 		if (this.reconnectAttempts < config.broker.maxReconnectAttempts) {
 			this.reconnectAttempts++;
 			const delay =
-				config.broker.reconnectDelay *
-				Math.pow(2, this.reconnectAttempts - 1);
+				config.broker.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
 			logger.info("Attempting to reconnect to broker", {
 				attempt: this.reconnectAttempts,
@@ -455,8 +452,7 @@ export class BrokerClientService extends EventEmitter {
 			await job.updateProgress(25);
 
 			// Check if this is an embedding request
-			const isEmbeddingRequest =
-				request.metadata?.requestType === "embedding";
+			const isEmbeddingRequest = request.metadata?.requestType === "embedding";
 
 			logger.info("Processing job assignment", {
 				jobId: job.id,
@@ -549,10 +545,7 @@ export class BrokerClientService extends EventEmitter {
 				JSON.stringify({
 					jobId: job.id,
 					workerId: config.worker.id,
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				})
 			);
@@ -563,10 +556,7 @@ export class BrokerClientService extends EventEmitter {
 				JSON.stringify({
 					jobId: request.id,
 					workerId: config.worker.id,
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				})
 			);
@@ -707,9 +697,7 @@ export class BrokerClientService extends EventEmitter {
 		return new Promise(async (resolve, reject) => {
 			const timeout = setTimeout(() => {
 				reject(
-					new Error(
-						`Inference request timed out after ${request.timeout}ms`
-					)
+					new Error(`Inference request timed out after ${request.timeout}ms`)
 				);
 			}, request.timeout);
 

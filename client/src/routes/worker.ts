@@ -24,10 +24,7 @@ export const workerRoutes = (brokerClient: BrokerClientService): Router => {
 			} catch (error) {
 				logger.error("Failed to get worker status", error);
 				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				});
 			}
@@ -56,10 +53,7 @@ export const workerRoutes = (brokerClient: BrokerClientService): Router => {
 			} catch (error) {
 				logger.error("Failed to get worker capabilities", error);
 				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				});
 			}
@@ -80,10 +74,7 @@ export const workerRoutes = (brokerClient: BrokerClientService): Router => {
 			} catch (error) {
 				logger.error("Failed to get connection status", error);
 				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				});
 			}
@@ -109,10 +100,7 @@ export const workerRoutes = (brokerClient: BrokerClientService): Router => {
 			} catch (error) {
 				logger.error("Failed to get worker metrics", error);
 				res.status(500).json({
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				});
 			}

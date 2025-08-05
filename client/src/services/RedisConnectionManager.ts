@@ -170,16 +170,11 @@ export class RedisConnectionManager {
 							reason: "connection_lost",
 						})
 					);
-					logger.warn(
-						`Notified server about worker ${workerId} disconnection`
-					);
+					logger.warn(`Notified server about worker ${workerId} disconnection`);
 				}
 			}
 		} catch (error) {
-			logger.error(
-				"Failed to notify server about worker disconnection",
-				error
-			);
+			logger.error("Failed to notify server about worker disconnection", error);
 		}
 	}
 
@@ -224,18 +219,14 @@ export class RedisConnectionManager {
 
 	getSubscriber(): Redis {
 		if (!this.subscriber || !this.isConnected) {
-			throw new Error(
-				"Redis subscriber not connected. Call connect() first."
-			);
+			throw new Error("Redis subscriber not connected. Call connect() first.");
 		}
 		return this.subscriber;
 	}
 
 	getPublisher(): Redis {
 		if (!this.publisher || !this.isConnected) {
-			throw new Error(
-				"Redis publisher not connected. Call connect() first."
-			);
+			throw new Error("Redis publisher not connected. Call connect() first.");
 		}
 		return this.publisher;
 	}

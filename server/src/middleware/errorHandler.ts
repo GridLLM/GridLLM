@@ -74,8 +74,7 @@ export const errorHandler = (
 		error: {
 			message,
 			code,
-			details:
-				process.env.NODE_ENV === "development" ? details : undefined,
+			details: process.env.NODE_ENV === "development" ? details : undefined,
 		},
 		timestamp: new Date().toISOString(),
 		path: req.path,

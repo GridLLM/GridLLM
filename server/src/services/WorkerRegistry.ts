@@ -83,8 +83,7 @@ export class WorkerRegistry extends EventEmitter {
 
 					// Check if worker is still alive based on last heartbeat
 					const heartbeatAge =
-						Date.now() -
-						new Date(workerInfo.lastHeartbeat).getTime();
+						Date.now() - new Date(workerInfo.lastHeartbeat).getTime();
 
 					if (heartbeatAge < config.server.workerHeartbeatTimeout) {
 						workerInfo.status = "online";
@@ -99,10 +98,7 @@ export class WorkerRegistry extends EventEmitter {
 						);
 					}
 				} catch (error) {
-					logger.error(
-						`Failed to parse worker data for ${workerId}`,
-						error
-					);
+					logger.error(`Failed to parse worker data for ${workerId}`, error);
 					await this.redis.hdel("workers", workerId);
 				}
 			}
@@ -151,9 +147,7 @@ export class WorkerRegistry extends EventEmitter {
 				logger.debug(
 					`Checking worker ${workerId} aliveness - ${timeSinceLastSeen}ms since last heartbeat`
 				);
-				const isStillConnected = await this.checkWorkerAliveness(
-					workerId
-				);
+				const isStillConnected = await this.checkWorkerAliveness(workerId);
 				if (!isStillConnected) {
 					logger.warn(
 						`Worker ${workerId} appears to have disconnected abruptly (${worker.currentJobs} active jobs) - removing immediately`
@@ -175,8 +169,7 @@ export class WorkerRegistry extends EventEmitter {
 			}
 
 			const heartbeat = JSON.parse(heartbeatData);
-			const heartbeatAge =
-				Date.now() - new Date(heartbeat.timestamp).getTime();
+			const heartbeatAge = Date.now() - new Date(heartbeat.timestamp).getTime();
 
 			// If heartbeat is older than 15 seconds, worker is likely disconnected
 			return heartbeatAge < 15000;
@@ -277,19 +270,12 @@ export class WorkerRegistry extends EventEmitter {
 				worker.connectionHealth = data.connectionHealth || "healthy";
 
 				// Update in Redis
-				await this.redis.hset(
-					"workers",
-					data.workerId,
-					JSON.stringify(worker)
-				);
+				await this.redis.hset("workers", data.workerId, JSON.stringify(worker));
 
 				this.emit("worker_heartbeat", worker);
 			} else {
 				// Worker not in memory, check if it exists in Redis
-				const workerData = await this.redis.hget(
-					"workers",
-					data.workerId
-				);
+				const workerData = await this.redis.hget("workers", data.workerId);
 
 				if (workerData) {
 					// Worker exists in Redis but not in memory, load it
@@ -298,8 +284,7 @@ export class WorkerRegistry extends EventEmitter {
 						workerInfo.lastHeartbeat = new Date(data.timestamp);
 						workerInfo.status = data.status || "online";
 						workerInfo.currentJobs = data.currentJobs || 0;
-						workerInfo.connectionHealth =
-							data.connectionHealth || "healthy";
+						workerInfo.connectionHealth = data.connectionHealth || "healthy";
 
 						this.workers.set(data.workerId, workerInfo);
 
@@ -352,11 +337,7 @@ export class WorkerRegistry extends EventEmitter {
 				}
 
 				// Update in Redis
-				await this.redis.hset(
-					"workers",
-					data.workerId,
-					JSON.stringify(worker)
-				);
+				await this.redis.hset("workers", data.workerId, JSON.stringify(worker));
 
 				this.emit("worker_status_changed", worker);
 				logger.worker(data.workerId, "Worker status updated", {

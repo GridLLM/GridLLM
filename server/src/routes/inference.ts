@@ -36,8 +36,9 @@ export const inferenceRoutes = (
 		"/",
 		asyncHandler(async (req: Request, res: Response) => {
 			// Validate request body
-			const { error, value: validatedData } =
-				inferenceRequestSchema.validate(req.body);
+			const { error, value: validatedData } = inferenceRequestSchema.validate(
+				req.body
+			);
 			if (error) {
 				throw createError(
 					`Validation error: ${error.details[0]?.message}`,
@@ -91,9 +92,7 @@ export const inferenceRoutes = (
 
 			try {
 				// Submit job and wait for completion
-				const result = await jobScheduler.submitAndWait(
-					inferenceRequest
-				);
+				const result = await jobScheduler.submitAndWait(inferenceRequest);
 
 				// Return the actual response from worker
 				res.status(200).json({
@@ -113,10 +112,7 @@ export const inferenceRoutes = (
 				});
 			} catch (error) {
 				logger.job(inferenceRequest.id, "Inference request failed", {
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 				});
 
 				if (error instanceof Error) {
@@ -220,8 +216,7 @@ export const inferenceRoutes = (
 						existing.workers++;
 						if (
 							worker.status === "online" &&
-							worker.currentJobs <
-								worker.capabilities.maxConcurrentTasks
+							worker.currentJobs < worker.capabilities.maxConcurrentTasks
 						) {
 							existing.availableWorkers++;
 						}
@@ -231,8 +226,7 @@ export const inferenceRoutes = (
 							workers: 1,
 							availableWorkers:
 								worker.status === "online" &&
-								worker.currentJobs <
-									worker.capabilities.maxConcurrentTasks
+								worker.currentJobs < worker.capabilities.maxConcurrentTasks
 									? 1
 									: 0,
 							totalSize: model.size,

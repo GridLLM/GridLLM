@@ -186,13 +186,7 @@ export interface WorkerEvent {
 }
 
 export interface JobEvent {
-	type:
-		| "created"
-		| "assigned"
-		| "started"
-		| "completed"
-		| "failed"
-		| "timeout";
+	type: "created" | "assigned" | "started" | "completed" | "failed" | "timeout";
 	jobId: string;
 	workerId?: string;
 	timestamp: Date;

@@ -161,8 +161,9 @@ export const ollamaRoutes = (
 	router.post(
 		"/api/generate",
 		asyncHandler(async (req: Request, res: Response) => {
-			const { error, value: validatedData } =
-				generateRequestSchema.validate(req.body);
+			const { error, value: validatedData } = generateRequestSchema.validate(
+				req.body
+			);
 			if (error) {
 				throw createError(
 					`Validation error: ${error.details[0]?.message}`,
@@ -237,15 +238,11 @@ export const ollamaRoutes = (
 				},
 			};
 
-			logger.job(
-				inferenceRequest.id,
-				"Ollama generate request submitted",
-				{
-					model: inferenceRequest.model,
-					promptLength: inferenceRequest.prompt?.length || 0,
-					stream: validatedData.stream,
-				}
-			);
+			logger.job(inferenceRequest.id, "Ollama generate request submitted", {
+				model: inferenceRequest.model,
+				promptLength: inferenceRequest.prompt?.length || 0,
+				stream: validatedData.stream,
+			});
 
 			try {
 				if (validatedData.stream) {
@@ -305,8 +302,7 @@ export const ollamaRoutes = (
 						}
 					);
 				} else {
-					const result =
-						await jobScheduler.submitAndWait(inferenceRequest);
+					const result = await jobScheduler.submitAndWait(inferenceRequest);
 					const ollamaResponse = convertToOllamaResponse(
 						result,
 						validatedData.model
@@ -314,16 +310,9 @@ export const ollamaRoutes = (
 					res.json(ollamaResponse);
 				}
 			} catch (error) {
-				logger.job(
-					inferenceRequest.id,
-					"Ollama generate request failed",
-					{
-						error:
-							error instanceof Error
-								? error.message
-								: "Unknown error",
-					}
-				);
+				logger.job(inferenceRequest.id, "Ollama generate request failed", {
+					error: error instanceof Error ? error.message : "Unknown error",
+				});
 				throw error;
 			}
 		})
@@ -346,10 +335,7 @@ export const ollamaRoutes = (
 			validateModelExists(validatedData.model);
 
 			// Handle load/unload cases
-			if (
-				!validatedData.messages ||
-				validatedData.messages.length === 0
-			) {
+			if (!validatedData.messages || validatedData.messages.length === 0) {
 				if (validatedData.keep_alive === 0) {
 					// Unload model
 					const unloadResponse = {
@@ -432,8 +418,7 @@ export const ollamaRoutes = (
 
 							// Include thinking field if present
 							if (chunk.thinking) {
-								(chatChunk.message as any).thinking =
-									chunk.thinking;
+								(chatChunk.message as any).thinking = chunk.thinking;
 							}
 
 							streamResponse(res, chatChunk);
@@ -450,18 +435,15 @@ export const ollamaRoutes = (
 								done: true,
 								total_duration: result.total_duration || 0,
 								load_duration: result.load_duration || 0,
-								prompt_eval_count:
-									result.prompt_eval_count || 0,
-								prompt_eval_duration:
-									result.prompt_eval_duration || 0,
+								prompt_eval_count: result.prompt_eval_count || 0,
+								prompt_eval_duration: result.prompt_eval_duration || 0,
 								eval_count: result.eval_count || 0,
 								eval_duration: result.eval_duration || 0,
 							};
 
 							// Include thinking field if present
 							if (result.thinking) {
-								(finalChatResponse.message as any).thinking =
-									result.thinking;
+								(finalChatResponse.message as any).thinking = result.thinking;
 							}
 
 							streamResponse(res, finalChatResponse);
@@ -488,8 +470,7 @@ export const ollamaRoutes = (
 						}
 					);
 				} else {
-					const result =
-						await jobScheduler.submitAndWait(inferenceRequest);
+					const result = await jobScheduler.submitAndWait(inferenceRequest);
 					const chatResponse: any = {
 						model: validatedData.model,
 						created_at: new Date().toISOString(),
@@ -515,10 +496,7 @@ export const ollamaRoutes = (
 				}
 			} catch (error) {
 				logger.job(inferenceRequest.id, "Ollama chat request failed", {
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 				});
 				throw error;
 			}
@@ -536,24 +514,17 @@ export const ollamaRoutes = (
 
 				// Aggregate models from all workers
 				for (const worker of allWorkers) {
-					if (
-						worker.capabilities &&
-						worker.capabilities.availableModels
-					) {
-						for (const model of worker.capabilities
-							.availableModels) {
+					if (worker.capabilities && worker.capabilities.availableModels) {
+						for (const model of worker.capabilities.availableModels) {
 							// Count workers that have this model
-							const currentCount =
-								modelWorkerCount.get(model.name) || 0;
+							const currentCount = modelWorkerCount.get(model.name) || 0;
 							modelWorkerCount.set(model.name, currentCount + 1);
 
 							if (!modelsMap.has(model.name)) {
 								modelsMap.set(model.name, {
 									name: model.name,
 									model: model.name,
-									modified_at:
-										model.modified_at ||
-										new Date().toISOString(),
+									modified_at: model.modified_at || new Date().toISOString(),
 									size: model.size || 0,
 									digest: model.digest || "",
 									details: model.details || {
@@ -593,10 +564,7 @@ export const ollamaRoutes = (
 				logger.error("Error in /api/tags endpoint", error);
 				res.status(500).json({
 					error: "Internal server error",
-					message:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					message: error instanceof Error ? error.message : "Unknown error",
 				});
 			}
 		})
@@ -648,8 +616,7 @@ export const ollamaRoutes = (
 			});
 
 			try {
-				const result =
-					await jobScheduler.submitAndWait(embeddingRequest);
+				const result = await jobScheduler.submitAndWait(embeddingRequest);
 
 				// Convert GridLLM response to Ollama embed format
 				const embedResponse = {
@@ -660,8 +627,7 @@ export const ollamaRoutes = (
 					prompt_eval_count:
 						result.prompt_eval_count ||
 						inputs.reduce(
-							(sum: number, input: string) =>
-								sum + input.split(" ").length,
+							(sum: number, input: string) => sum + input.split(" ").length,
 							0
 						),
 				};
@@ -669,10 +635,7 @@ export const ollamaRoutes = (
 				res.json(embedResponse);
 			} catch (error) {
 				logger.job(embeddingRequest.id, "Ollama embed request failed", {
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 				});
 				throw error;
 			}
@@ -683,8 +646,9 @@ export const ollamaRoutes = (
 	router.post(
 		"/api/embeddings",
 		asyncHandler(async (req: Request, res: Response) => {
-			const { error, value: validatedData } =
-				embeddingsRequestSchema.validate(req.body);
+			const { error, value: validatedData } = embeddingsRequestSchema.validate(
+				req.body
+			);
 			if (error) {
 				throw createError(
 					`Validation error: ${error.details[0]?.message}`,
@@ -721,8 +685,7 @@ export const ollamaRoutes = (
 			);
 
 			try {
-				const result =
-					await jobScheduler.submitAndWait(embeddingRequest);
+				const result = await jobScheduler.submitAndWait(embeddingRequest);
 
 				// Convert GridLLM response to legacy Ollama embeddings format
 				// The legacy endpoint returns a single embedding, not an array
@@ -739,10 +702,7 @@ export const ollamaRoutes = (
 					embeddingRequest.id,
 					"Ollama embeddings (legacy) request failed",
 					{
-						error:
-							error instanceof Error
-								? error.message
-								: "Unknown error",
+						error: error instanceof Error ? error.message : "Unknown error",
 					}
 				);
 				throw error;

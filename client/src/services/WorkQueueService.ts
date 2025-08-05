@@ -59,16 +59,12 @@ export class WorkQueueService {
 		});
 
 		// Initialize worker
-		this.worker = new Worker(
-			"inference-tasks",
-			this.processTask.bind(this),
-			{
-				connection,
-				concurrency: config.worker.concurrency,
-				maxStalledCount: 1,
-				stalledInterval: 30000,
-			}
-		);
+		this.worker = new Worker("inference-tasks", this.processTask.bind(this), {
+			connection,
+			concurrency: config.worker.concurrency,
+			maxStalledCount: 1,
+			stalledInterval: 30000,
+		});
 
 		// Initialize queue events
 		this.queueEvents = new QueueEvents("inference-tasks", { connection });
@@ -154,9 +150,7 @@ export class WorkQueueService {
 			);
 
 			if (!canHandle) {
-				throw new Error(
-					`Model ${request.model} not available on this worker`
-				);
+				throw new Error(`Model ${request.model} not available on this worker`);
 			}
 
 			await job.updateProgress(25);
@@ -309,8 +303,7 @@ export class WorkQueueService {
 			currentJobs: activeJobs.map((job: Job) => job.id || ""),
 			capabilities: this.capabilities,
 			lastHeartbeat: new Date(),
-			connectionHealth: this.redisManager.getConnectionStatus()
-				.isConnected
+			connectionHealth: this.redisManager.getConnectionStatus().isConnected
 				? "healthy"
 				: "poor",
 		};

@@ -11,6 +11,7 @@ Production deployments typically distribute components across multiple machines 
 ### Setup Steps
 
 1. **Infrastructure Node** (Redis + Ollama):
+
    ```sh
    # Create network and start infrastructure services
    docker network create gridllm-net
@@ -19,6 +20,7 @@ Production deployments typically distribute components across multiple machines 
    ```
 
 2. **Server Node** (GridLLM coordination server):
+
    ```sh
    docker run -d --name gridllm-server --restart unless-stopped -p 4000:4000 \
      --env-file .env \
@@ -50,7 +52,7 @@ docker run -d --name gridllm-server --network gridllm-net --restart unless-stopp
   -e REDIS_HOST=gridllm-redis \
   campinator/gridllm-server:latest
 
-# Workers can reference all services by container name  
+# Workers can reference all services by container name
 docker run -d --name gridllm-worker-01 --network gridllm-net --restart unless-stopped \
   -e SERVER_HOST=gridllm-server \
   -e SERVER_REDIS_HOST=gridllm-redis \
@@ -64,7 +66,9 @@ docker run -d --name gridllm-worker-01 --network gridllm-net --restart unless-st
 ## Hybrid Deployments
 
 ### Connecting to Host Services
+
 Connect containerized GridLLM to services running on the Docker host:
+
 ```env
 # For Docker Desktop (Windows/macOS)
 REDIS_HOST=host.docker.internal
@@ -75,7 +79,9 @@ OLLAMA_HOST=host.docker.internal
 ```
 
 ### Mixed Container/Bare-Metal
+
 Example configuration for mixed deployment scenarios:
+
 ```env
 # Worker connecting to remote infrastructure
 REDIS_HOST=redis.internal.company.com
@@ -108,12 +114,14 @@ Configure via `.env` files in `server/` and `client/` directories.
 The following are the most commonly configured variables for deployment. See `.env.example` files in the `server/` and `client/` directories for complete configuration options.
 
 **Server:**
+
 - `REDIS_HOST`: Redis hostname/IP
 - `REDIS_PORT`: Redis port (default: 6379)
 - `REDIS_PASSWORD`: Optional Redis auth
 
 **Worker:**
-- `SERVER_HOST`: GridLLM server hostname/IP  
+
+- `SERVER_HOST`: GridLLM server hostname/IP
 - `SERVER_PORT`: Server port (default: 4000)
 - `SERVER_REDIS_HOST`: Redis hostname for worker coordination
 - `OLLAMA_HOST`: Ollama hostname/IP
@@ -133,6 +141,7 @@ Ensure Redis, GridLLM server, and Ollama instances are network-accessible from w
 GridLLM provides Docker Compose configurations for production deployments:
 
 **Docker Images:**
+
 - Release builds: `campinator/gridllm-server:latest`, `campinator/gridllm-client:latest`
 - Nightly builds: `campinator/gridllm-server:nightly`, `campinator/gridllm-client:nightly`
 
@@ -152,8 +161,9 @@ docker compose -f docs/deployment/docker-compose.dependencies.yml up -d
 ```
 
 **Multi-Machine Deployment Pattern:**
+
 - **Infrastructure Node**: Redis + Ollama (`docker-compose.dependencies.yml`)
-- **Server Node**: GridLLM coordination server (`docker-compose.server.yml`) 
+- **Server Node**: GridLLM coordination server (`docker-compose.server.yml`)
 - **Worker Nodes**: GridLLM clients (`docker-compose.client.yml`)
 
 Configure network connectivity between nodes via environment variables in each compose file.

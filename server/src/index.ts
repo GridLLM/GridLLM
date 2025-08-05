@@ -152,8 +152,7 @@ class GridLLMServer {
 				workerId: data.workerId,
 				model: data.jobAssignment.request.model,
 				duration:
-					Date.now() -
-					new Date(data.jobAssignment.assignedAt).getTime(),
+					Date.now() - new Date(data.jobAssignment.assignedAt).getTime(),
 			});
 		});
 
@@ -247,20 +246,15 @@ class GridLLMServer {
 					workers: {
 						total: this.workerRegistry.getWorkerCount(),
 						online: this.workerRegistry.getOnlineWorkerCount(),
-						available:
-							this.workerRegistry.getAvailableWorkerCount(),
+						available: this.workerRegistry.getAvailableWorkerCount(),
 					},
 					jobs: {
 						active: this.jobScheduler.getActiveJobCount(),
 						queued: this.jobScheduler.getQueuedJobCount(),
 					},
 					memory: {
-						used: Math.round(
-							process.memoryUsage().heapUsed / 1024 / 1024
-						),
-						total: Math.round(
-							process.memoryUsage().heapTotal / 1024 / 1024
-						),
+						used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+						total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
 					},
 				});
 			}, 60000); // Every minute

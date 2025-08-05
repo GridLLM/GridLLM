@@ -85,10 +85,7 @@ export const rateLimiter = (
 			store.set(key, 1, resetTime);
 
 			res.setHeader("X-RateLimit-Limit", config.rateLimit.maxRequests);
-			res.setHeader(
-				"X-RateLimit-Remaining",
-				config.rateLimit.maxRequests - 1
-			);
+			res.setHeader("X-RateLimit-Remaining", config.rateLimit.maxRequests - 1);
 			res.setHeader("X-RateLimit-Reset", Math.ceil(resetTime / 1000));
 
 			return next();
@@ -107,10 +104,7 @@ export const rateLimiter = (
 
 			res.setHeader("X-RateLimit-Limit", config.rateLimit.maxRequests);
 			res.setHeader("X-RateLimit-Remaining", 0);
-			res.setHeader(
-				"X-RateLimit-Reset",
-				Math.ceil(record.resetTime / 1000)
-			);
+			res.setHeader("X-RateLimit-Reset", Math.ceil(record.resetTime / 1000));
 			res.setHeader("Retry-After", retryAfter);
 
 			return next(

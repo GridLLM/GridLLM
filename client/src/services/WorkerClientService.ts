@@ -61,9 +61,7 @@ export class WorkerClientService extends EventEmitter {
 	async start(): Promise<void> {
 		try {
 			if (!this.capabilities) {
-				throw new Error(
-					"Service not initialized. Call initialize() first."
-				);
+				throw new Error("Service not initialized. Call initialize() first.");
 			}
 
 			logger.info("Starting worker client service");
@@ -238,9 +236,7 @@ export class WorkerClientService extends EventEmitter {
 			await this.unregisterFromServer();
 
 			// Unsubscribe from channels
-			await this.redisManager.unsubscribe(
-				`worker:${config.worker.id}:job`
-			);
+			await this.redisManager.unsubscribe(`worker:${config.worker.id}:job`);
 			await this.redisManager.unsubscribe(
 				`worker:reregister:${config.worker.id}`
 			);
@@ -289,8 +285,7 @@ export class WorkerClientService extends EventEmitter {
 		if (this.reconnectAttempts < config.server.maxReconnectAttempts) {
 			this.reconnectAttempts++;
 			const delay =
-				config.server.reconnectDelay *
-				Math.pow(2, this.reconnectAttempts - 1);
+				config.server.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
 			logger.info("Attempting to reconnect to server", {
 				attempt: this.reconnectAttempts,
@@ -530,8 +525,7 @@ export class WorkerClientService extends EventEmitter {
 			}
 
 			// Check if this is an embedding request
-			const isEmbeddingRequest =
-				request.metadata?.requestType === "embedding";
+			const isEmbeddingRequest = request.metadata?.requestType === "embedding";
 
 			logger.debug("Request type detected", {
 				jobId: request.id,
@@ -641,10 +635,7 @@ export class WorkerClientService extends EventEmitter {
 				JSON.stringify({
 					jobId: request.id,
 					workerId: config.worker.id,
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				})
 			);
@@ -655,10 +646,7 @@ export class WorkerClientService extends EventEmitter {
 				JSON.stringify({
 					jobId: request.id,
 					workerId: config.worker.id,
-					error:
-						error instanceof Error
-							? error.message
-							: "Unknown error",
+					error: error instanceof Error ? error.message : "Unknown error",
 					timestamp: new Date().toISOString(),
 				})
 			);

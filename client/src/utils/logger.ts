@@ -88,15 +88,13 @@ if (process.env.NODE_ENV !== "production") {
 			format: winston.format.combine(
 				winston.format.colorize(),
 				winston.format.simple(),
-				winston.format.printf(
-					({ timestamp, level, message, stack }) => {
-						let logMessage = `${timestamp} [${level}]: ${message}`;
-						if (stack) {
-							logMessage += `\n${stack}`;
-						}
-						return logMessage;
+				winston.format.printf(({ timestamp, level, message, stack }) => {
+					let logMessage = `${timestamp} [${level}]: ${message}`;
+					if (stack) {
+						logMessage += `\n${stack}`;
 					}
-				)
+					return logMessage;
+				})
 			),
 		})
 	);

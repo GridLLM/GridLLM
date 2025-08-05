@@ -33,8 +33,9 @@ export const inferenceRoutes = (brokerClient: BrokerClientService): Router => {
 		asyncHandler(async (req: Request, res: Response) => {
 			try {
 				// Validate request body
-				const { error, value: validatedData } =
-					inferenceRequestSchema.validate(req.body);
+				const { error, value: validatedData } = inferenceRequestSchema.validate(
+					req.body
+				);
 				if (error) {
 					throw createError(
 						`Validation error: ${error.details[0]?.message}`,
@@ -89,8 +90,7 @@ export const inferenceRoutes = (brokerClient: BrokerClientService): Router => {
 				});
 
 				// Submit job and wait for completion
-				const result =
-					await brokerClient.submitAndWait(inferenceRequest);
+				const result = await brokerClient.submitAndWait(inferenceRequest);
 
 				// Return the actual response from Ollama
 				res.status(200).json({

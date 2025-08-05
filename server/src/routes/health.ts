@@ -96,15 +96,9 @@ export const healthRoutes = (
 				},
 				resources: {
 					memory: {
-						used: Math.round(
-							process.memoryUsage().heapUsed / 1024 / 1024
-						),
-						total: Math.round(
-							process.memoryUsage().heapTotal / 1024 / 1024
-						),
-						external: Math.round(
-							process.memoryUsage().external / 1024 / 1024
-						),
+						used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+						total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+						external: Math.round(process.memoryUsage().external / 1024 / 1024),
 					},
 					cpu: {
 						usage: process.cpuUsage(),
@@ -137,8 +131,7 @@ export const healthRoutes = (
 				summary: {
 					online: workers.filter((w) => w.status === "online").length,
 					busy: workers.filter((w) => w.status === "busy").length,
-					offline: workers.filter((w) => w.status === "offline")
-						.length,
+					offline: workers.filter((w) => w.status === "offline").length,
 					error: workers.filter((w) => w.status === "error").length,
 				},
 			});

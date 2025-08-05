@@ -65,8 +65,7 @@ class WorkerApplication {
 				status: "running",
 				workerId: config.worker.id,
 				workerStatus: status.status,
-				connectedToServer:
-					this.workerClient.getConnectionStatus().isConnected,
+				connectedToServer: this.workerClient.getConnectionStatus().isConnected,
 				availableModels: capabilities?.availableModels.length || 0,
 				timestamp: new Date().toISOString(),
 			});

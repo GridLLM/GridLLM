@@ -32,10 +32,7 @@ export class JobScheduler extends EventEmitter {
 				"job:completed",
 				this.handleJobCompleted.bind(this)
 			);
-			await this.redis.subscribe(
-				"job:failed",
-				this.handleJobFailed.bind(this)
-			);
+			await this.redis.subscribe("job:failed", this.handleJobFailed.bind(this));
 			await this.redis.subscribe(
 				"job:timeout",
 				this.handleJobTimeout.bind(this)
@@ -93,9 +90,7 @@ export class JobScheduler extends EventEmitter {
 
 					// Check if job has timed out
 					const now = Date.now();
-					const assignedTime = new Date(
-						jobAssignment.assignedAt
-					).getTime();
+					const assignedTime = new Date(jobAssignment.assignedAt).getTime();
 
 					if (now - assignedTime > jobAssignment.timeout) {
 						// Job has timed out, remove it
@@ -105,10 +100,7 @@ export class JobScheduler extends EventEmitter {
 						logger.job(jobId, "Loaded existing active job");
 					}
 				} catch (error) {
-					logger.error(
-						`Failed to parse job data for ${jobId}`,
-						error
-					);
+					logger.error(`Failed to parse job data for ${jobId}`, error);
 					await this.redis.hdel("active_jobs", jobId);
 				}
 			}
@@ -147,9 +139,7 @@ export class JobScheduler extends EventEmitter {
 			return;
 		}
 
-		logger.info(
-			`Processing job queue: ${this.jobQueue.length} jobs waiting`
-		);
+		logger.info(`Processing job queue: ${this.jobQueue.length} jobs waiting`);
 
 		// Sort jobs by priority
 		this.jobQueue.sort((a, b) => {
@@ -173,9 +163,7 @@ export class JobScheduler extends EventEmitter {
 			const worker = this.selectWorkerForJob(job);
 
 			if (worker) {
-				logger.info(
-					`Assigning job ${job.id} to worker ${worker.workerId}`
-				);
+				logger.info(`Assigning job ${job.id} to worker ${worker.workerId}`);
 				const wasAssigned = await this.assignJobToWorker(job, worker);
 				if (wasAssigned) {
 					processedJobs.push(job.id);
@@ -186,9 +174,7 @@ export class JobScheduler extends EventEmitter {
 				}
 			} else {
 				// Check if there are workers with the required model that are just busy
-				const modelWorkers = this.workerRegistry.getWorkersByModel(
-					job.model
-				);
+				const modelWorkers = this.workerRegistry.getWorkersByModel(job.model);
 				const busyModelWorkers = modelWorkers.filter(
 					(w) =>
 						w.status === "online" &&
@@ -244,20 +230,14 @@ export class JobScheduler extends EventEmitter {
 
 			// If job has been assigned for more than 10 seconds, check if worker is still alive
 			if (timeSinceAssigned > orphanCheckThreshold) {
-				const worker = this.workerRegistry.getWorker(
-					jobAssignment.workerId
-				);
+				const worker = this.workerRegistry.getWorker(jobAssignment.workerId);
 
 				if (!worker) {
 					// Worker no longer exists, orphan the job immediately
 					logger.error(
 						`Job ${jobId} orphaned - worker ${jobAssignment.workerId} no longer exists`
 					);
-					await this.orphanJob(
-						jobId,
-						jobAssignment,
-						"worker_not_found"
-					);
+					await this.orphanJob(jobId, jobAssignment, "worker_not_found");
 					continue;
 				}
 
@@ -270,11 +250,7 @@ export class JobScheduler extends EventEmitter {
 					logger.error(
 						`Job ${jobId} orphaned - worker ${jobAssignment.workerId} not responding (${timeSinceHeartbeat}ms since last heartbeat)`
 					);
-					await this.orphanJob(
-						jobId,
-						jobAssignment,
-						"worker_not_responding"
-					);
+					await this.orphanJob(jobId, jobAssignment, "worker_not_responding");
 				}
 			}
 		}
@@ -291,13 +267,9 @@ export class JobScheduler extends EventEmitter {
 			await this.redis.hdel("active_jobs", jobId);
 
 			// Mark worker as available (if it still exists)
-			const worker = this.workerRegistry.getWorker(
-				jobAssignment.workerId
-			);
+			const worker = this.workerRegistry.getWorker(jobAssignment.workerId);
 			if (worker) {
-				await this.workerRegistry.markWorkerAvailable(
-					jobAssignment.workerId
-				);
+				await this.workerRegistry.markWorkerAvailable(jobAssignment.workerId);
 			}
 
 			// Create orphaned request with high priority
@@ -310,8 +282,7 @@ export class JobScheduler extends EventEmitter {
 					originalWorkerId: jobAssignment.workerId,
 					orphanedAt: new Date().toISOString(),
 					orphanReason: reason,
-					requeueCount:
-						(jobAssignment.request.metadata?.requeueCount || 0) + 1,
+					requeueCount: (jobAssignment.request.metadata?.requeueCount || 0) + 1,
 				},
 			};
 
@@ -394,9 +365,7 @@ export class JobScheduler extends EventEmitter {
 	): Promise<boolean> {
 		try {
 			// Double-check that worker is still available before assignment
-			const currentWorker = this.workerRegistry.getWorker(
-				worker.workerId
-			);
+			const currentWorker = this.workerRegistry.getWorker(worker.workerId);
 			if (!currentWorker) {
 				logger.warn(
 					`Worker ${worker.workerId} no longer available, cannot assign job ${job.id}`
@@ -405,9 +374,7 @@ export class JobScheduler extends EventEmitter {
 			}
 
 			// Check if worker has responded recently
-			const lastHeartbeat = new Date(
-				currentWorker.lastHeartbeat
-			).getTime();
+			const lastHeartbeat = new Date(currentWorker.lastHeartbeat).getTime();
 			const timeSinceHeartbeat = Date.now() - lastHeartbeat;
 
 			if (timeSinceHeartbeat > 10000) {
@@ -475,9 +442,7 @@ export class JobScheduler extends EventEmitter {
 				await this.redis.hdel("active_jobs", data.jobId);
 
 				// Mark worker as available
-				await this.workerRegistry.markWorkerAvailable(
-					jobAssignment.workerId
-				);
+				await this.workerRegistry.markWorkerAvailable(jobAssignment.workerId);
 
 				this.emit("job_completed", {
 					jobAssignment,
@@ -487,9 +452,7 @@ export class JobScheduler extends EventEmitter {
 
 				logger.job(data.jobId, "Job completed successfully", {
 					workerId: data.workerId,
-					duration:
-						Date.now() -
-						new Date(jobAssignment.assignedAt).getTime(),
+					duration: Date.now() - new Date(jobAssignment.assignedAt).getTime(),
 				});
 			}
 		} catch (error) {
@@ -508,9 +471,7 @@ export class JobScheduler extends EventEmitter {
 				await this.redis.hdel("active_jobs", data.jobId);
 
 				// Mark worker as available
-				await this.workerRegistry.markWorkerAvailable(
-					jobAssignment.workerId
-				);
+				await this.workerRegistry.markWorkerAvailable(jobAssignment.workerId);
 
 				// Check if we should retry the job
 				const retryCount =
@@ -563,9 +524,7 @@ export class JobScheduler extends EventEmitter {
 				await this.redis.hdel("active_jobs", data.jobId);
 
 				// Mark worker as available
-				await this.workerRegistry.markWorkerAvailable(
-					jobAssignment.workerId
-				);
+				await this.workerRegistry.markWorkerAvailable(jobAssignment.workerId);
 
 				// Notify worker to cancel the job
 				await this.redis.publish(
@@ -635,9 +594,7 @@ export class JobScheduler extends EventEmitter {
 							orphaned: true,
 							originalWorkerId: worker.workerId,
 							orphanedAt: new Date().toISOString(),
-							requeueCount:
-								(originalRequest.metadata?.requeueCount || 0) +
-								1,
+							requeueCount: (originalRequest.metadata?.requeueCount || 0) + 1,
 						},
 					};
 
@@ -648,8 +605,7 @@ export class JobScheduler extends EventEmitter {
 						`Orphaned job requeued with high priority: ${jobAssignment.jobId}`,
 						{
 							originalWorkerId: worker.workerId,
-							requeueCount:
-								requeuedRequest.metadata?.requeueCount,
+							requeueCount: requeuedRequest.metadata?.requeueCount,
 							newPriority: requeuedRequest.priority,
 						}
 					);
@@ -662,10 +618,7 @@ export class JobScheduler extends EventEmitter {
 				}
 
 				// Update queue in Redis
-				await this.redis.set(
-					"job_queue",
-					JSON.stringify(this.jobQueue)
-				);
+				await this.redis.set("job_queue", JSON.stringify(this.jobQueue));
 
 				logger.warn(
 					`Successfully requeued ${orphanedJobs.length} orphaned jobs from worker ${worker.workerId}`
@@ -680,10 +633,7 @@ export class JobScheduler extends EventEmitter {
 		const maxWaitTime = 30000; // 30 seconds
 		const startTime = Date.now();
 
-		while (
-			this.activeJobs.size > 0 &&
-			Date.now() - startTime < maxWaitTime
-		) {
+		while (this.activeJobs.size > 0 && Date.now() - startTime < maxWaitTime) {
 			logger.info(
 				`Waiting for ${this.activeJobs.size} active jobs to complete`
 			);
@@ -717,9 +667,7 @@ export class JobScheduler extends EventEmitter {
 		return new Promise(async (resolve, reject) => {
 			const timeout = setTimeout(() => {
 				reject(
-					new Error(
-						`Job ${request.id} timed out after ${request.timeout}ms`
-					)
+					new Error(`Job ${request.id} timed out after ${request.timeout}ms`)
 				);
 			}, request.timeout || config.jobs.timeout);
 
@@ -780,13 +728,10 @@ export class JobScheduler extends EventEmitter {
 			});
 
 			const timeout = setTimeout(() => {
-				logger.warn(
-					"Streaming job timed out, cleaning up subscriptions",
-					{
-						requestId: request.id,
-						timeout: request.timeout || config.jobs.timeout,
-					}
-				);
+				logger.warn("Streaming job timed out, cleaning up subscriptions", {
+					requestId: request.id,
+					timeout: request.timeout || config.jobs.timeout,
+				});
 				try {
 					this.redis.unsubscribe(streamChannel);
 				} catch (error) {
@@ -830,8 +775,7 @@ export class JobScheduler extends EventEmitter {
 					if (data.jobId === request.id) {
 						logger.debug("Processing stream chunk for job", {
 							jobId: data.jobId,
-							chunkResponse:
-								data.chunk?.response || "No response",
+							chunkResponse: data.chunk?.response || "No response",
 							chunkDone: data.chunk?.done,
 						});
 						onChunk(data.chunk);
@@ -907,9 +851,7 @@ export class JobScheduler extends EventEmitter {
 				resultChannel,
 			});
 		} catch (error) {
-			onError(
-				error instanceof Error ? error : new Error("Unknown error")
-			);
+			onError(error instanceof Error ? error : new Error("Unknown error"));
 		}
 	}
 

@@ -23,11 +23,6 @@
 		"typeRoots": ["./node_modules/@types", "./types"],
 		"types": ["node", "jest"]
 	},
-	"include": [
-		"tests/**/*",
-		"server/src/**/*",
-		"client/src/**/*",
-		"slush/**/*"
-	],
+	"include": ["tests/**/*", "server/src/**/*", "client/src/**/*", "slush/**/*"],
 	"exclude": ["node_modules", "dist", "**/*.js"]
 }

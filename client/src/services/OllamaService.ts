@@ -85,9 +85,7 @@ export class OllamaService {
 		try {
 			const response: AxiosResponse<{ models: OllamaModel[] }> =
 				await this.client.get("/api/tags");
-			logger.info(
-				`Found ${response.data.models.length} available models`
-			);
+			logger.info(`Found ${response.data.models.length} available models`);
 			return response.data.models;
 		} catch (error) {
 			logger.error("Failed to get available models", error);
@@ -144,8 +142,10 @@ export class OllamaService {
 				think: payload.think,
 			});
 
-			const response: AxiosResponse<InferenceResponse> =
-				await this.client.post("/api/generate", payload);
+			const response: AxiosResponse<InferenceResponse> = await this.client.post(
+				"/api/generate",
+				payload
+			);
 
 			const result = {
 				...response.data,
