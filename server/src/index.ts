@@ -10,6 +10,7 @@ import { JobScheduler } from "@/services/JobScheduler";
 import { healthRoutes } from "@/routes/health";
 import { inferenceRoutes } from "@/routes/inference";
 import { ollamaRoutes } from "@/routes/ollama";
+import { openaiRoutes } from "@/routes/openai";
 import { errorHandler, notFoundHandler } from "@/middleware/errorHandler";
 
 class GridLLMServer {
@@ -78,6 +79,9 @@ class GridLLMServer {
 			ollamaRoutes(this.jobScheduler, this.workerRegistry)
 		);
 
+		// OpenAI API routes - OpenAI-compatible endpoints
+		this.app.use("/", openaiRoutes(this.jobScheduler, this.workerRegistry));
+
 		// Root endpoint
 		this.app.get("/", (req, res) => {
 			res.json({
@@ -98,6 +102,7 @@ class GridLLMServer {
 					health: "/health",
 					inference: "/inference",
 					ollama: "/ollama",
+					openai: "/v1/completions, /v1/models",
 				},
 				timestamp: new Date().toISOString(),
 			});
