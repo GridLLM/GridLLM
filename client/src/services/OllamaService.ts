@@ -6,6 +6,7 @@ import {
 	InferenceRequest,
 	InferenceResponse,
 	StreamResponse,
+	OllamaChatMessage,
 } from "@/types";
 
 export class OllamaService {
@@ -337,6 +338,172 @@ export class OllamaService {
 				error,
 			});
 			return false;
+		}
+	}
+
+	async generateChatResponse(
+		request: InferenceRequest
+	): Promise<InferenceResponse> {
+		try {
+			if (!request.metadata?.messages) {
+				throw new Error("Chat request must include messages in metadata");
+			}
+
+			const payload: any = {
+				model: request.model,
+				messages: request.metadata.messages,
+				stream: false,
+				options: request.options || {},
+			};
+
+			// Add other metadata fields that should be passed to Ollama
+			if (request.metadata?.tools) {
+				payload.tools = request.metadata.tools;
+			}
+			if (request.metadata?.think) {
+				payload.think = request.metadata.think;
+			}
+			if (request.metadata?.format) {
+				payload.format = request.metadata.format;
+			}
+			if (request.metadata?.keep_alive) {
+				payload.keep_alive = request.metadata.keep_alive;
+			}
+
+			logger.info("Starting chat inference", {
+				id: request.id,
+				model: request.model,
+				messagesCount: request.metadata.messages.length,
+				think: payload.think,
+			});
+
+			const response: AxiosResponse<any> = await this.client.post(
+				"/api/chat",
+				payload
+			);
+
+			const result = {
+				...response.data,
+				id: request.id,
+			};
+
+			logger.info("Ollama chat request completed", {
+				model: request.model,
+				messagesCount: request.metadata.messages.length,
+				responseLength: result.message?.content?.length || 0,
+				duration: result.total_duration,
+			});
+			return result;
+		} catch (error) {
+			logger.error("Chat inference failed", {
+				id: request.id,
+				model: request.model,
+				error: error,
+			});
+			throw new Error(
+				`Chat inference failed: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
+		}
+	}
+
+	async *generateChatStreamResponse(
+		request: InferenceRequest
+	): AsyncGenerator<StreamResponse> {
+		try {
+			if (!request.metadata?.messages) {
+				throw new Error("Chat request must include messages in metadata");
+			}
+
+			const payload: any = {
+				model: request.model,
+				messages: request.metadata.messages,
+				stream: true,
+				options: request.options || {},
+			};
+
+			// Add other metadata fields that should be passed to Ollama
+			if (request.metadata?.tools) {
+				payload.tools = request.metadata.tools;
+			}
+			if (request.metadata?.think) {
+				payload.think = request.metadata.think;
+			}
+			if (request.metadata?.format) {
+				payload.format = request.metadata.format;
+			}
+			if (request.metadata?.keep_alive) {
+				payload.keep_alive = request.metadata.keep_alive;
+			}
+
+			logger.info("Starting chat stream inference", {
+				id: request.id,
+				model: request.model,
+				messagesCount: request.metadata.messages.length,
+				think: payload.think,
+			});
+
+			const response = await this.client.post("/api/chat", payload, {
+				responseType: "stream",
+			});
+
+			const stream = response.data as NodeJS.ReadableStream;
+			let buffer = "";
+
+			for await (const chunk of stream) {
+				buffer += chunk.toString();
+				const lines = buffer.split("\n");
+				buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+				for (const line of lines) {
+					if (line.trim()) {
+						try {
+							const data = JSON.parse(line);
+							yield {
+								id: request.id,
+								response: data.message?.content || "",
+								done: data.done || false,
+								...data,
+							};
+						} catch (parseError) {
+							logger.warn("Failed to parse stream chunk", {
+								line,
+								error: parseError,
+							});
+						}
+					}
+				}
+			}
+
+			// Process any remaining buffer
+			if (buffer.trim()) {
+				try {
+					const data = JSON.parse(buffer);
+					yield {
+						id: request.id,
+						response: data.message?.content || "",
+						done: data.done || false,
+						...data,
+					};
+				} catch (parseError) {
+					logger.warn("Failed to parse final stream chunk", {
+						buffer,
+						error: parseError,
+					});
+				}
+			}
+		} catch (error) {
+			logger.error("Chat stream inference failed", {
+				id: request.id,
+				model: request.model,
+				error: error,
+			});
+			throw new Error(
+				`Chat stream inference failed: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
 		}
 	}
 

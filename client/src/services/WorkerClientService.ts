@@ -526,13 +526,16 @@ export class WorkerClientService extends EventEmitter {
 
 			// Check if this is an embedding request
 			const isEmbeddingRequest = request.metadata?.requestType === "embedding";
+			const isChatRequest = request.metadata?.requestType === "chat";
 
 			logger.debug("Request type detected", {
 				jobId: request.id,
 				requestType: request.metadata?.requestType,
 				isEmbeddingRequest,
+				isChatRequest,
 				hasInput: !!request.input,
 				hasPrompt: !!request.prompt,
+				hasMessages: !!request.metadata?.messages,
 				metadata: request.metadata,
 			});
 
@@ -543,6 +546,55 @@ export class WorkerClientService extends EventEmitter {
 				logger.info("Handling as embedding request");
 				// Handle embedding request
 				result = await this.ollamaService.generateEmbedding(request);
+			} else if (isChatRequest) {
+				if (request.stream) {
+					logger.info("Handling as streaming chat request");
+					// For streaming chat, publish each chunk as it arrives
+					let fullResponse = "";
+					for await (const chunk of this.ollamaService.generateChatStreamResponse(
+						request
+					)) {
+						fullResponse += chunk.response;
+
+						logger.info("Worker publishing chat stream chunk", {
+							jobId: request.id,
+							chunk: chunk,
+							fullResponseLength: fullResponse.length,
+						});
+
+						// Publish streaming chunk to the stream channel
+						await this.redisManager.publish(
+							`job:stream:${request.id}`,
+							JSON.stringify({
+								jobId: request.id,
+								workerId: config.worker.id,
+								chunk: {
+									...chunk,
+									message: { content: chunk.response },
+								},
+								timestamp: new Date().toISOString(),
+							})
+						);
+
+						logger.info("Chat stream chunk published successfully", {
+							jobId: request.id,
+							channel: `job:stream:${request.id}`,
+						});
+
+						if (chunk.done) {
+							result = {
+								...chunk,
+								id: request.id,
+								message: { content: fullResponse },
+							};
+							break;
+						}
+					}
+				} else {
+					logger.info("Handling as non-streaming chat request");
+					// Non-streaming chat
+					result = await this.ollamaService.generateChatResponse(request);
+				}
 			} else if (request.stream) {
 				logger.info("Handling as streaming inference request");
 				// For streaming, publish each chunk as it arrives
