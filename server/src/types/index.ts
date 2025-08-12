@@ -87,7 +87,7 @@ export interface InferenceRequest {
 		originalWorkerId?: string;
 		orphanedAt?: string;
 		requeueCount?: number;
-		requestType?: "inference" | "embedding"; // To distinguish request types
+		requestType?: "inference" | "embedding" | "chat"; // To distinguish request types
 		ollamaEndpoint?: string;
 		[key: string]: any;
 	};
@@ -133,6 +133,8 @@ export interface InferenceResponse {
 	prompt_eval_duration?: number;
 	eval_count?: number;
 	eval_duration?: number;
+	// OpenAI compatibility field
+	system_fingerprint?: string;
 }
 
 export interface EmbeddingResponse {
@@ -295,4 +297,174 @@ export interface OllamaShowResponse {
 	details: OllamaModelDetails;
 	model_info: Record<string, any>;
 	capabilities: string[];
+}
+
+// OpenAI-compatible Chat Completions Types
+export interface OpenAIChatMessage {
+	role: "system" | "user" | "assistant" | "tool";
+	content:
+		| string
+		| Array<{
+				type: "text" | "image_url";
+				text?: string;
+				image_url?: {
+					url: string;
+					detail?: "auto" | "low" | "high";
+				};
+		  }>;
+	name?: string;
+	tool_calls?: Array<{
+		id: string;
+		type: "function";
+		function: {
+			name: string;
+			arguments: string;
+		};
+	}>;
+	tool_call_id?: string;
+}
+
+export interface OpenAIChatCompletionsRequest {
+	model: string;
+	messages: OpenAIChatMessage[];
+	frequency_penalty?: number;
+	logit_bias?: Record<string, number>;
+	logprobs?: boolean;
+	top_logprobs?: number;
+	max_tokens?: number;
+	max_completion_tokens?: number;
+	n?: number;
+	presence_penalty?: number;
+	response_format?: {
+		type: "text" | "json_object" | "json_schema";
+		json_schema?: {
+			name?: string;
+			description?: string;
+			schema?: Record<string, any>;
+			strict?: boolean;
+		};
+	};
+	seed?: number;
+	service_tier?: string;
+	stop?: string | string[];
+	stream?: boolean;
+	stream_options?: {
+		include_usage?: boolean;
+	};
+	temperature?: number;
+	top_p?: number;
+	tools?: Array<{
+		type: "function";
+		function: {
+			name: string;
+			description?: string;
+			parameters?: Record<string, any>;
+		};
+	}>;
+	tool_choice?:
+		| "none"
+		| "auto"
+		| "required"
+		| {
+				type: "function";
+				function: {
+					name: string;
+				};
+		  };
+	parallel_tool_calls?: boolean;
+	user?: string;
+}
+
+export interface OpenAIChatCompletionsResponse {
+	id: string;
+	object: "chat.completion";
+	created: number;
+	model: string;
+	system_fingerprint?: string;
+	choices: Array<{
+		index: number;
+		message: {
+			role: "assistant";
+			content: string | null;
+			tool_calls?: Array<{
+				id: string;
+				type: "function";
+				function: {
+					name: string;
+					arguments: string;
+				};
+			}>;
+		};
+		logprobs?: {
+			content: Array<{
+				token: string;
+				logprob: number;
+				bytes: number[] | null;
+				top_logprobs: Array<{
+					token: string;
+					logprob: number;
+					bytes: number[] | null;
+				}>;
+			}> | null;
+		} | null;
+		finish_reason:
+			| "stop"
+			| "length"
+			| "function_call"
+			| "tool_calls"
+			| "content_filter";
+	}>;
+	usage: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
+}
+
+export interface OpenAIChatCompletionsStreamChunk {
+	id: string;
+	object: "chat.completion.chunk";
+	created: number;
+	model: string;
+	system_fingerprint?: string;
+	choices: Array<{
+		index: number;
+		delta: {
+			role?: "assistant";
+			content?: string;
+			tool_calls?: Array<{
+				index: number;
+				id?: string;
+				type?: "function";
+				function?: {
+					name?: string;
+					arguments?: string;
+				};
+			}>;
+		};
+		logprobs?: {
+			content: Array<{
+				token: string;
+				logprob: number;
+				bytes: number[] | null;
+				top_logprobs: Array<{
+					token: string;
+					logprob: number;
+					bytes: number[] | null;
+				}>;
+			}> | null;
+		} | null;
+		finish_reason:
+			| "stop"
+			| "length"
+			| "function_call"
+			| "tool_calls"
+			| "content_filter"
+			| null;
+	}>;
+	usage?: {
+		prompt_tokens: number;
+		completion_tokens: number;
+		total_tokens: number;
+	};
 }

@@ -19,19 +19,40 @@ export interface InferenceRequest {
 	priority: "high" | "medium" | "low";
 	timeout?: number;
 	metadata?: {
-		requestType?: "inference" | "embedding"; // To distinguish request types
+		requestType?: "inference" | "embedding" | "chat"; // To distinguish request types
+		messages?: OllamaChatMessage[]; // For chat requests
+		ollamaEndpoint?: string; // To specify which Ollama endpoint to use
 		[key: string]: any;
 	};
+}
+
+// Ollama Chat Types
+export interface OllamaChatMessage {
+	role: "system" | "user" | "assistant" | "tool";
+	content: string;
+	thinking?: string;
+	images?: string[];
+	tool_calls?: any[];
+	tool_name?: string;
 }
 
 export interface InferenceResponse {
 	id: string;
 	model?: string;
 	created_at?: string;
-	response?: string; // Optional for embedding responses
+	response?: string; // Optional for embedding responses and chat responses
 	thinking?: string;
 	done?: boolean;
+	done_reason?: string;
 	context?: number[];
+	// Chat-specific fields
+	message?: {
+		role?: string;
+		content?: string;
+		thinking?: string;
+		images?: null;
+		tool_calls?: any[];
+	};
 	// Embedding-specific fields
 	embeddings?: number[][]; // For embedding responses
 	embedding?: number[]; // Legacy field for single embedding
@@ -42,6 +63,8 @@ export interface InferenceResponse {
 	prompt_eval_duration?: number;
 	eval_count?: number;
 	eval_duration?: number;
+	// OpenAI compatibility field
+	system_fingerprint?: string;
 }
 
 export interface StreamResponse {

@@ -49,7 +49,8 @@
 		"test:e2e": "scripts/run-e2e-tests.sh",
 		"test:watch": "jest --watch",
 		"test:coverage": "jest --coverage",
-		"test:ollama": "ts-node tests/integration/compareResponse.ts"
+		"test:ollama": "ts-node tests/integration/compareResponse.ts",
+		"restart": "docker compose down && docker compose build --no-cache && npm run bundle:full"
 	},
 	"keywords": [
 		"llm",
