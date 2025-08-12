@@ -1,6 +1,6 @@
 const OLLAMA_ENDPOINT = process.env.OLLAMA_ENDPOINT || "http://localhost:11434";
 const GRIDLLM_ENDPOINT =
-	process.env.GRIDLLM_ENDPOINT || "http://localhost:4010";
+	process.env.GRIDLLM_ENDPOINT || "http://localhost:4000";
 const TEST_MODEL = process.env.TEST_MODEL || "qwen3:0.6b";
 
 function areObjectsSimilar(obj1: any, obj2: any): boolean {
@@ -173,14 +173,46 @@ async function testOpenAIV1ChatCompletions(): Promise<boolean> {
 }
 
 async function main() {
-	const v1models = await testOpenAIV1Models();
-	console.log("/v1/models:", v1models);
+	console.log(
+		`Testing with Ollama: ${OLLAMA_ENDPOINT}, GridLLM: ${GRIDLLM_ENDPOINT}, Model: ${TEST_MODEL}`
+	);
 
-	const v1completions = await testOpenAIV1Completions();
-	console.log("/v1/completions:", v1completions);
+	let hasFailure = false;
 
-	const v1chatCompletions = await testOpenAIV1ChatCompletions();
-	console.log("/v1/chat/completions:", v1chatCompletions);
+	try {
+		const v1models = await testOpenAIV1Models();
+		console.log("/v1/models:", v1models);
+		if (!v1models) hasFailure = true;
+	} catch (error) {
+		console.log("/v1/models: ERROR -", error);
+		hasFailure = true;
+	}
+
+	try {
+		const v1completions = await testOpenAIV1Completions();
+		console.log("/v1/completions:", v1completions);
+		if (!v1completions) hasFailure = true;
+	} catch (error) {
+		console.log("/v1/completions: ERROR -", error);
+		hasFailure = true;
+	}
+
+	try {
+		const v1chatCompletions = await testOpenAIV1ChatCompletions();
+		console.log("/v1/chat/completions:", v1chatCompletions);
+		if (!v1chatCompletions) hasFailure = true;
+	} catch (error) {
+		console.log("/v1/chat/completions: ERROR -", error);
+		hasFailure = true;
+	}
+
+	if (hasFailure) {
+		console.log("\n❌ Some integration tests failed!");
+		process.exit(1);
+	} else {
+		console.log("\n✅ All integration tests passed!");
+		process.exit(0);
+	}
 }
 
 if (require.main === module) {
