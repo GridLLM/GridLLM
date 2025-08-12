@@ -9,6 +9,22 @@ on:
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      SERVER_PORT: 4000
+      CLIENT_PORT: 3000
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      REDIS_KEY_PREFIX: "GridLLM:"
+      WORKER_ID: "worker-ci-001"
+      OLLAMA_HOST: "ollama-test"
+      OLLAMA_PORT: 11434
+      OLLAMA_PROTOCOL: "http"
+      LOG_LEVEL: "info"
+      OLLAMA_ENDPOINT: "http://localhost:11434"
+      GRIDLLM_ENDPOINT: "http://localhost:4000"
+      TEST_MODEL: "qwen2.5:0.5b"
 
     steps:
       - name: Checkout code
@@ -29,30 +45,26 @@ jobs:
           timeout 120 bash -c 'until curl -f http://localhost:11434/api/version; do sleep 5; done'
           echo "Ollama is ready"
 
-          # Pull qwen2.5:0.5b on Ollama POST /api/pull
-          echo "Pulling qwen2.5:0.5b model..."
-          timeout 300 bash -c 'curl -X POST -H "Content-Type: application/json" -d "{\"name\": \"qwen2.5:0.5b\"}" http://localhost:11434/api/pull'
-
-          # Wait a bit more for the model to be fully ready
-          sleep 10
-          echo "Model qwen2.5:0.5b is ready"
+          # Pull model on Ollama POST /api/pull
+          echo "Pulling ${TEST_MODEL} model..."
+          timeout 300 bash -c 'curl -X POST -H "Content-Type: application/json" -d "{\"name\": \"${TEST_MODEL}\"}" http://localhost:11434/api/pull'
+          echo "Model ${TEST_MODEL} is ready"
 
       - name: Create .env file for testing
         run: |
           cat > .env << EOF
-          NODE_ENV=test
-          SERVER_PORT=4000
-          CLIENT_PORT=3000
-          REDIS_PORT=6379
-          REDIS_PASSWORD=
-          REDIS_DB=0
-          REDIS_KEY_PREFIX=GridLLM:
-          WORKER_ID=worker-ci-001
-          OLLAMA_HOST=ollama-test
-          OLLAMA_PORT=11434
-          OLLAMA_PROTOCOL=http
-          API_KEY=test-api-key
-          LOG_LEVEL=info
+          NODE_ENV=$NODE_ENV
+          SERVER_PORT=$SERVER_PORT
+          CLIENT_PORT=$CLIENT_PORT
+          REDIS_PORT=$REDIS_PORT
+          REDIS_PASSWORD=$REDIS_PASSWORD
+          REDIS_DB=$REDIS_DB
+          REDIS_KEY_PREFIX=$REDIS_KEY_PREFIX
+          WORKER_ID=$WORKER_ID
+          OLLAMA_HOST=$OLLAMA_HOST
+          OLLAMA_PORT=$OLLAMA_PORT
+          OLLAMA_PROTOCOL=$OLLAMA_PROTOCOL
+          LOG_LEVEL=$LOG_LEVEL
           EOF
 
       - name: Build Docker images
@@ -118,10 +130,6 @@ jobs:
           npm install -g ts-node typescript
 
       - name: Run Integration Tests
-        env:
-          OLLAMA_ENDPOINT: http://localhost:11434
-          GRIDLLM_ENDPOINT: http://localhost:4000
-          TEST_MODEL: qwen2.5:0.5b
         run: |
           echo "Running integration tests..."
           ts-node tests/integration/integration.ts
