@@ -63,6 +63,8 @@ export interface InferenceResponse {
 	prompt_eval_duration?: number;
 	eval_count?: number;
 	eval_duration?: number;
+	// OpenAI compatibility field
+	system_fingerprint?: string;
 }
 
 export interface StreamResponse {

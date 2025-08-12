@@ -102,62 +102,71 @@ export class OllamaService {
 				model: request.model,
 				prompt: request.prompt,
 				stream: false,
-				options: request.options || {},
+				max_tokens: request.options?.num_predict || 128,
 			};
 
-			// Add think parameter if present in metadata
-			if (request.metadata?.think) {
-				payload.think = request.metadata.think;
+			// Map GridLLM options to OpenAI parameters
+			if (request.options?.temperature !== undefined) {
+				payload.temperature = request.options.temperature;
+			}
+			if (request.options?.top_p !== undefined) {
+				payload.top_p = request.options.top_p;
+			}
+			if (request.options?.seed !== undefined) {
+				payload.seed = request.options.seed;
+			}
+			if (request.options?.stop !== undefined) {
+				payload.stop = request.options.stop;
+			}
+			if (request.options?.frequency_penalty !== undefined) {
+				payload.frequency_penalty = request.options.frequency_penalty;
+			}
+			if (request.options?.presence_penalty !== undefined) {
+				payload.presence_penalty = request.options.presence_penalty;
 			}
 
-			// Add other metadata fields that should be passed to Ollama
+			// Add other metadata fields
 			if (request.metadata?.suffix) {
 				payload.suffix = request.metadata.suffix;
 			}
-			if (request.metadata?.images) {
-				payload.images = request.metadata.images;
-			}
-			if (request.metadata?.format) {
-				payload.format = request.metadata.format;
-			}
-			if (request.metadata?.system) {
-				payload.system = request.metadata.system;
-			}
-			if (request.metadata?.template) {
-				payload.template = request.metadata.template;
-			}
-			if (request.metadata?.raw) {
-				payload.raw = request.metadata.raw;
-			}
-			if (request.metadata?.keep_alive) {
-				payload.keep_alive = request.metadata.keep_alive;
-			}
-			if (request.metadata?.context) {
-				payload.context = request.metadata.context;
+			if (request.metadata?.user) {
+				payload.user = request.metadata.user;
 			}
 
 			logger.info("Starting inference", {
 				id: request.id,
 				model: request.model,
 				promptLength: request.prompt?.length || 0,
-				think: payload.think,
 			});
 
-			const response: AxiosResponse<InferenceResponse> = await this.client.post(
-				"/api/generate",
+			const response: AxiosResponse<any> = await this.client.post(
+				"/v1/completions",
 				payload
 			);
 
-			const result = {
-				...response.data,
+			// Convert OpenAI response format back to GridLLM format
+			const openaiData = response.data;
+			const result: InferenceResponse = {
 				id: request.id,
+				model: openaiData.model,
+				created_at: new Date(openaiData.created * 1000).toISOString(),
+				response: openaiData.choices?.[0]?.text || "",
+				done: true,
+				done_reason: openaiData.choices?.[0]?.finish_reason || "stop",
+				total_duration: 0, // OpenAI doesn't provide this
+				load_duration: 0,
+				prompt_eval_count: openaiData.usage?.prompt_tokens || 0,
+				prompt_eval_duration: 0,
+				eval_count: openaiData.usage?.completion_tokens || 0,
+				eval_duration: 0,
+				system_fingerprint: openaiData.system_fingerprint, // Pass through system_fingerprint
 			};
 
 			logger.info("Ollama generate request completed", {
 				model: request.model,
 				promptLength: request.prompt?.length || 0,
 				responseLength: result.response?.length || 0,
-				duration: result.total_duration,
+				system_fingerprint: result.system_fingerprint,
 			});
 			return result;
 		} catch (error) {
@@ -353,45 +362,76 @@ export class OllamaService {
 				model: request.model,
 				messages: request.metadata.messages,
 				stream: false,
-				options: request.options || {},
 			};
 
-			// Add other metadata fields that should be passed to Ollama
+			// Map GridLLM options to OpenAI parameters
+			if (request.options?.temperature !== undefined) {
+				payload.temperature = request.options.temperature;
+			}
+			if (request.options?.top_p !== undefined) {
+				payload.top_p = request.options.top_p;
+			}
+			if (request.options?.num_predict !== undefined) {
+				payload.max_tokens = request.options.num_predict;
+			}
+			if (request.options?.seed !== undefined) {
+				payload.seed = request.options.seed;
+			}
+			if (request.options?.stop !== undefined) {
+				payload.stop = request.options.stop;
+			}
+			if (request.options?.frequency_penalty !== undefined) {
+				payload.frequency_penalty = request.options.frequency_penalty;
+			}
+			if (request.options?.presence_penalty !== undefined) {
+				payload.presence_penalty = request.options.presence_penalty;
+			}
+
+			// Add other metadata fields
 			if (request.metadata?.tools) {
 				payload.tools = request.metadata.tools;
 			}
-			if (request.metadata?.think) {
-				payload.think = request.metadata.think;
+			if (request.metadata?.tool_choice) {
+				payload.tool_choice = request.metadata.tool_choice;
 			}
-			if (request.metadata?.format) {
-				payload.format = request.metadata.format;
-			}
-			if (request.metadata?.keep_alive) {
-				payload.keep_alive = request.metadata.keep_alive;
+			if (request.metadata?.user) {
+				payload.user = request.metadata.user;
 			}
 
 			logger.info("Starting chat inference", {
 				id: request.id,
 				model: request.model,
 				messagesCount: request.metadata.messages.length,
-				think: payload.think,
 			});
 
 			const response: AxiosResponse<any> = await this.client.post(
-				"/api/chat",
+				"/v1/chat/completions",
 				payload
 			);
 
-			const result = {
-				...response.data,
+			// Convert OpenAI response format back to GridLLM format
+			const openaiData = response.data;
+			const result: InferenceResponse = {
 				id: request.id,
+				model: openaiData.model,
+				created_at: new Date(openaiData.created * 1000).toISOString(),
+				message: openaiData.choices?.[0]?.message || {},
+				done: true,
+				done_reason: openaiData.choices?.[0]?.finish_reason || "stop",
+				total_duration: 0, // OpenAI doesn't provide this
+				load_duration: 0,
+				prompt_eval_count: openaiData.usage?.prompt_tokens || 0,
+				prompt_eval_duration: 0,
+				eval_count: openaiData.usage?.completion_tokens || 0,
+				eval_duration: 0,
+				system_fingerprint: openaiData.system_fingerprint, // Pass through system_fingerprint
 			};
 
 			logger.info("Ollama chat request completed", {
 				model: request.model,
 				messagesCount: request.metadata.messages.length,
 				responseLength: result.message?.content?.length || 0,
-				duration: result.total_duration,
+				system_fingerprint: result.system_fingerprint,
 			});
 			return result;
 		} catch (error) {

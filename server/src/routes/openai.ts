@@ -281,7 +281,7 @@ export const openaiRoutes = (
 			choice.message.tool_calls = message.tool_calls;
 		}
 
-		return {
+		const result: any = {
 			id: `chatcmpl-${requestId}`,
 			object: "chat.completion" as const,
 			created: Math.floor(Date.now() / 1000),
@@ -293,6 +293,13 @@ export const openaiRoutes = (
 				total_tokens: promptTokens + completionTokens,
 			},
 		};
+
+		// Pass through system_fingerprint from Ollama if available
+		if (response.system_fingerprint) {
+			result.system_fingerprint = response.system_fingerprint;
+		}
+
+		return result;
 	};
 
 	// Helper function to convert GridLLM response to OpenAI completions format
@@ -325,7 +332,7 @@ export const openaiRoutes = (
 			finish_reason,
 		};
 
-		return {
+		const result: any = {
 			id: `cmpl-${requestId}`,
 			object: "text_completion",
 			created: Math.floor(Date.now() / 1000),
@@ -337,6 +344,13 @@ export const openaiRoutes = (
 				total_tokens: promptTokens + completionTokens,
 			},
 		};
+
+		// Pass through system_fingerprint from Ollama if available
+		if (response.system_fingerprint) {
+			result.system_fingerprint = response.system_fingerprint;
+		}
+
+		return result;
 	};
 
 	// Helper function to stream OpenAI format response
@@ -444,7 +458,7 @@ export const openaiRoutes = (
 							const deltaText = chunk.response || "";
 							totalText += deltaText;
 
-							const openaiChunk = {
+							const openaiChunk: any = {
 								id: `cmpl-${inferenceRequest.id}`,
 								object: "text_completion",
 								created,
@@ -462,12 +476,17 @@ export const openaiRoutes = (
 								],
 							};
 
+							// Pass through system_fingerprint from Ollama if available
+							if (chunk.system_fingerprint) {
+								openaiChunk.system_fingerprint = chunk.system_fingerprint;
+							}
+
 							streamOpenAIResponse(res, openaiChunk);
 						},
 						// onComplete callback
 						(result) => {
 							// Send final chunk with finish_reason
-							const finalChunk = {
+							const finalChunk: any = {
 								id: `cmpl-${inferenceRequest.id}`,
 								object: "text_completion",
 								created,
@@ -487,6 +506,11 @@ export const openaiRoutes = (
 										(result.prompt_eval_count || 0) + (result.eval_count || 0),
 								},
 							};
+
+							// Pass through system_fingerprint from Ollama if available
+							if (result.system_fingerprint) {
+								finalChunk.system_fingerprint = result.system_fingerprint;
+							}
 
 							// Only include usage in final chunk if stream_options.include_usage is true
 							if (validatedData.stream_options?.include_usage) {
@@ -674,7 +698,7 @@ export const openaiRoutes = (
 							const deltaContent = chunk.message?.content || "";
 							totalContent += deltaContent;
 
-							const openaiChunk = {
+							const openaiChunk: any = {
 								id: `chatcmpl-${inferenceRequest.id}`,
 								object: "chat.completion.chunk" as const,
 								created,
@@ -695,12 +719,17 @@ export const openaiRoutes = (
 								],
 							};
 
+							// Pass through system_fingerprint from Ollama if available
+							if (chunk.system_fingerprint) {
+								openaiChunk.system_fingerprint = chunk.system_fingerprint;
+							}
+
 							streamOpenAIResponse(res, openaiChunk);
 						},
 						// onComplete callback
 						(result) => {
 							// Send final chunk with finish_reason
-							const finalChunk = {
+							const finalChunk: any = {
 								id: `chatcmpl-${inferenceRequest.id}`,
 								object: "chat.completion.chunk" as const,
 								created,
@@ -715,9 +744,14 @@ export const openaiRoutes = (
 								],
 							};
 
+							// Pass through system_fingerprint from Ollama if available
+							if (result.system_fingerprint) {
+								finalChunk.system_fingerprint = result.system_fingerprint;
+							}
+
 							// Include usage in final chunk if requested
 							if (validatedData.stream_options?.include_usage) {
-								(finalChunk as any).usage = {
+								finalChunk.usage = {
 									prompt_tokens: result.prompt_eval_count || 0,
 									completion_tokens: result.eval_count || 0,
 									total_tokens:
