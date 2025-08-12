@@ -328,7 +328,7 @@ export const openaiRoutes = (
 		const choice: any = {
 			text: echo ? prompt + text : text,
 			index: 0,
-			logprobs: logprobs !== null ? null : null, // TODO: Implement logprobs if needed
+			logprobs: null, // TODO: Implement logprobs if needed
 			finish_reason,
 		};
 
@@ -470,7 +470,7 @@ export const openaiRoutes = (
 												? promptText + deltaText
 												: deltaText,
 										index: 0,
-										logprobs: validatedData.logprobs !== null ? null : null,
+										logprobs: null,
 										finish_reason: null,
 									},
 								],
@@ -495,7 +495,7 @@ export const openaiRoutes = (
 									{
 										text: "",
 										index: 0,
-										logprobs: validatedData.logprobs !== null ? null : null,
+										logprobs: null,
 										finish_reason: "stop",
 									},
 								],
@@ -713,7 +713,7 @@ export const openaiRoutes = (
 													: undefined,
 											content: deltaContent,
 										},
-										logprobs: validatedData.logprobs ? null : null,
+										logprobs: null,
 										finish_reason: null,
 									},
 								],
@@ -738,7 +738,7 @@ export const openaiRoutes = (
 									{
 										index: 0,
 										delta: {},
-										logprobs: validatedData.logprobs ? null : null,
+										logprobs: null,
 										finish_reason: "stop" as const,
 									},
 								],
