@@ -460,31 +460,49 @@ export class OllamaService {
 				model: request.model,
 				messages: request.metadata.messages,
 				stream: true,
-				options: request.options || {},
 			};
 
-			// Add other metadata fields that should be passed to Ollama
+			// Map GridLLM options to OpenAI parameters
+			if (request.options?.temperature !== undefined) {
+				payload.temperature = request.options.temperature;
+			}
+			if (request.options?.top_p !== undefined) {
+				payload.top_p = request.options.top_p;
+			}
+			if (request.options?.num_predict !== undefined) {
+				payload.max_tokens = request.options.num_predict;
+			}
+			if (request.options?.seed !== undefined) {
+				payload.seed = request.options.seed;
+			}
+			if (request.options?.stop !== undefined) {
+				payload.stop = request.options.stop;
+			}
+			if (request.options?.frequency_penalty !== undefined) {
+				payload.frequency_penalty = request.options.frequency_penalty;
+			}
+			if (request.options?.presence_penalty !== undefined) {
+				payload.presence_penalty = request.options.presence_penalty;
+			}
+
+			// Add other metadata fields
 			if (request.metadata?.tools) {
 				payload.tools = request.metadata.tools;
 			}
-			if (request.metadata?.think) {
-				payload.think = request.metadata.think;
+			if (request.metadata?.tool_choice) {
+				payload.tool_choice = request.metadata.tool_choice;
 			}
-			if (request.metadata?.format) {
-				payload.format = request.metadata.format;
-			}
-			if (request.metadata?.keep_alive) {
-				payload.keep_alive = request.metadata.keep_alive;
+			if (request.metadata?.user) {
+				payload.user = request.metadata.user;
 			}
 
 			logger.info("Starting chat stream inference", {
 				id: request.id,
 				model: request.model,
 				messagesCount: request.metadata.messages.length,
-				think: payload.think,
 			});
 
-			const response = await this.client.post("/api/chat", payload, {
+			const response = await this.client.post("/v1/chat/completions", payload, {
 				responseType: "stream",
 			});
 
@@ -498,17 +516,40 @@ export class OllamaService {
 
 				for (const line of lines) {
 					if (line.trim()) {
+						// Skip data: prefix and handle [DONE] signal
+						const cleanLine = line.replace(/^data: /, "");
+						if (cleanLine === "[DONE]") {
+							logger.info("Chat streaming completed", { id: request.id });
+							return;
+						}
+
 						try {
-							const data = JSON.parse(line);
+							const data = JSON.parse(cleanLine);
+							const deltaContent = data.choices?.[0]?.delta?.content || "";
+
 							yield {
 								id: request.id,
-								response: data.message?.content || "",
-								done: data.done || false,
+								response: deltaContent,
+								done: data.choices?.[0]?.finish_reason !== null,
+								message: {
+									content: deltaContent,
+									role: data.choices?.[0]?.delta?.role || "assistant",
+								},
+								system_fingerprint: data.system_fingerprint,
 								...data,
 							};
+
+							// Check if we're done
+							if (data.choices?.[0]?.finish_reason) {
+								logger.info("Chat streaming inference completed", {
+									id: request.id,
+									finish_reason: data.choices[0].finish_reason,
+								});
+								return;
+							}
 						} catch (parseError) {
 							logger.warn("Failed to parse stream chunk", {
-								line,
+								line: cleanLine,
 								error: parseError,
 							});
 						}
@@ -518,19 +559,29 @@ export class OllamaService {
 
 			// Process any remaining buffer
 			if (buffer.trim()) {
-				try {
-					const data = JSON.parse(buffer);
-					yield {
-						id: request.id,
-						response: data.message?.content || "",
-						done: data.done || false,
-						...data,
-					};
-				} catch (parseError) {
-					logger.warn("Failed to parse final stream chunk", {
-						buffer,
-						error: parseError,
-					});
+				const cleanLine = buffer.replace(/^data: /, "");
+				if (cleanLine !== "[DONE]") {
+					try {
+						const data = JSON.parse(cleanLine);
+						const deltaContent = data.choices?.[0]?.delta?.content || "";
+
+						yield {
+							id: request.id,
+							response: deltaContent,
+							done: data.choices?.[0]?.finish_reason !== null,
+							message: {
+								content: deltaContent,
+								role: data.choices?.[0]?.delta?.role || "assistant",
+							},
+							system_fingerprint: data.system_fingerprint,
+							...data,
+						};
+					} catch (parseError) {
+						logger.warn("Failed to parse final stream chunk", {
+							buffer: cleanLine,
+							error: parseError,
+						});
+					}
 				}
 			}
 		} catch (error) {

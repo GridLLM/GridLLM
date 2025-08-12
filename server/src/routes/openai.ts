@@ -11,6 +11,7 @@ import {
 } from "@/types";
 import { logger } from "@/utils/logger";
 import { asyncHandler, createError } from "@/middleware/errorHandler";
+import { stream } from "winston";
 
 export const openaiRoutes = (
 	jobScheduler: JobScheduler,
@@ -762,7 +763,7 @@ export const openaiRoutes = (
 							streamOpenAIResponse(res, finalChunk);
 
 							// Send done signal
-							res.write("data: [DONE]\n\n");
+							streamOpenAIResponse(res, "[DONE]");
 							res.end();
 						},
 						// onError callback
